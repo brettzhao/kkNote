@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>kkNote 原型索引</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://unpkg.com/tdesign-miniprogram@latest/miniprogram_dist/style/index.css">
+  <style>
+    :root{ color-scheme: light; }
+    body{ margin:0; background:#f1f3f5; }
+    /* iPhone 15 Pro 屏幕尺寸（逻辑像素约 393x852），此处按比例模拟 */
+    .device{
+      width: 393px;
+      height: 852px;
+      border-radius: 42px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.15), inset 0 0 0 8px #121212;
+      background: #000;
+      overflow: hidden;
+      position: relative;
+      border: 1px solid #0e0e0e;
+    }
+    .device .screen{ position:absolute; inset:0; background:#fff; }
+    .device .notch{ position:absolute; top:8px; left:50%; transform:translateX(-50%); width:126px; height:32px; background:#000; border-radius:16px; z-index:5; }
+    .screen iframe{ width:100%; height:100%; border:0; border-radius: 34px; }
+    @media (max-width:1280px){ .device{ transform: scale(0.9); transform-origin: top left; } }
+    @media (max-width:1024px){ .device{ transform: scale(0.8); } }
+    .title{ font-weight:600; color:#0f172a; }
+  </style>
+</head>
+<body>
+  <div class="min-h-screen p-4">
+    <div class="mb-4 text-slate-700">TDesign 风格 · Tailwind 原型 · iPhone 15 Pro 模拟</div>
+    <div class="grid gap-6 lg:grid-cols-3 md:grid-cols-2 grid-cols-1">
+      <div>
+        <div class="title mb-2">Moment（Feed）</div>
+        <div id="device-feed" class="device">
+          <div class="notch"></div>
+          <div class="screen">
+            <iframe src="./feed.html"></iframe>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="title mb-2">Me（Profile）</div>
+        <div id="device-profile" class="device">
+          <div class="notch"></div>
+          <div class="screen">
+            <iframe id="profileFrame" src="./profile.html"></iframe>
+          </div>
+        </div>
+      </div>
+
+      
+    </div>
+  </div>
+
+  <script>
+    // 将 Feed 的更新转发到 Profile 以便统计显示
+    const profileFrame=document.getElementById('profileFrame');
+    window.addEventListener('message',(e)=>{
+      if(!e?.data?.type) return;
+      if(e.data.type==='posts-updated'){
+        // 附加图片数组供画廊展示
+        if(!Array.isArray(e.data.payload.images)){
+          // feed 会发送统计，我们在这里不强制加 images，留空也可
+        }
+        try{ profileFrame?.contentWindow?.postMessage(e.data,'*'); }catch(err){}
+      } else if(e.data.type==='nav'){
+        if(e.data.target==='profile'){
+          document.getElementById('device-profile')?.scrollIntoView({ behavior:'smooth', block:'start', inline:'nearest' });
+        } else if(e.data.target==='feed'){
+          document.getElementById('device-feed')?.scrollIntoView({ behavior:'smooth', block:'start', inline:'nearest' });
+        }
+      }
+    });
+  </script>
+</body>
+</html>
+
+

@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>发现 - Feed</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://unpkg.com/tdesign-miniprogram@latest/miniprogram_dist/style/index.css">
+  <style>
+    :root{ color-scheme: light; }
+    body{ background:#f6f7f9; }
+  </style>
+</head>
+<body class="text-gray-900">
+  <header class="sticky top-0 z-10 bg-white border-b border-gray-200">
+    <div class="px-4 pt-3 pb-2 flex items-center justify-between">
+      <div class="font-semibold text-slate-800">Moment</div>
+      <div class="text-sm text-slate-500">TDesign 风格</div>
+    </div>
+    <!-- 顶部 Banner 占位 -->
+    <div id="banner" class="px-3 pb-3">
+      <div class="h-24 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 border border-blue-300/40 shadow-sm"></div>
+    </div>
+  </header>
+
+  <main class="p-3 pb-24">
+    <div id="feed" class="space-y-3"></div>
+  </main>
+
+  <button id="fabPublish" class="fixed right-4 bottom-5 w-14 h-14 rounded-full bg-blue-500 text-white text-3xl shadow-xl">+</button>
+
+  <div id="publishOverlay" class="fixed inset-0 bg-black/50 hidden items-end justify-center p-3">
+    <div class="w-full max-w-sm bg-white rounded-xl overflow-hidden border border-gray-200">
+      <div class="flex items-center justify-between px-3 py-2 border-b border-gray-200">
+        <div class="font-semibold">发布新动态</div>
+        <button id="closeOverlay" class="text-slate-500">✕</button>
+      </div>
+      <div class="p-3">
+        <div class="mb-3">
+          <label class="block text-sm text-slate-500 mb-1">文字内容（可选）</label>
+          <textarea id="textInput" class="w-full min-h-[90px] border border-gray-200 rounded-lg p-2" placeholder="这一刻的想法…"></textarea>
+        </div>
+        <div class="mb-3">
+          <label class="block text-sm text-slate-500 mb-1">图片（最多 9 张）</label>
+          <input id="imageInput" type="file" accept="image/*" multiple class="w-full">
+          <div id="thumbs" class="grid grid-cols-4 gap-2 mt-2"></div>
+        </div>
+        <div class="flex gap-2">
+          <button id="submitBtn" class="px-4 py-2 rounded-lg bg-blue-500 text-white">发布</button>
+          <button id="resetBtn" class="px-4 py-2 rounded-lg border">清空</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 底部 TabBar -->
+  <nav class="fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 h-14 flex items-stretch">
+    <button id="tabFeed" class="flex-1 flex flex-col items-center justify-center text-blue-600 font-medium">Moment</button>
+    <button id="tabProfile" class="flex-1 flex flex-col items-center justify-center text-slate-600">Me</button>
+  </nav>
+
+  <script>
+    const posts = [];
+    const sampleImages = [
+      "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=600&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1470770903676-69b98201ea1c?q=80&w=600&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?q=80&w=600&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1500534310201-bbddc30730ca?q=80&w=600&auto=format&fit=crop"
+    ];
+    function seededRandom(seed){ let t=seed%2147483647; return ()=> (t=t*48271%2147483647)/2147483647; }
+    (function bootstrap(){ const r=seededRandom(42); for(let i=0;i<8;i++){ const n=1+Math.floor(r()*3); const imgs=Array.from({length:n},()=> sampleImages[Math.floor(r()*sampleImages.length)]); const hasText=r()>0.4; posts.push({ id:Date.now()+"_"+i, text: hasText? ["周末踏青","城市一角","记录此刻","新的开始"].sort(()=>r()-0.5)[0]:"", images: imgs, createdAt: Date.now()-Math.floor(r()*86400000)});} })();
+
+    const feedEl = document.getElementById('feed');
+    const fabPublish = document.getElementById('fabPublish');
+    const publishOverlay = document.getElementById('publishOverlay');
+    const closeOverlay = document.getElementById('closeOverlay');
+    const textInput = document.getElementById('textInput');
+    const imageInput = document.getElementById('imageInput');
+    const thumbs = document.getElementById('thumbs');
+    const submitBtn = document.getElementById('submitBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const tabFeed = document.getElementById('tabFeed');
+    const tabProfile = document.getElementById('tabProfile');
+
+    function renderFeed(){
+      const sorted=[...posts].sort((a,b)=> b.createdAt-a.createdAt);
+      feedEl.innerHTML='';
+      sorted.forEach((p, idx)=>{
+        const row=document.createElement('article');
+        row.className='relative pb-6 flex gap-3 bg-white border border-gray-200 rounded-xl p-3';
+
+        const avatar=document.createElement('img');
+        avatar.src='https://i.pravatar.cc/80?img=' + ((Math.abs(p.id.hashCode?.()||0)+7)%70+1);
+        avatar.alt='头像';
+        avatar.className='w-10 h-10 rounded-full border flex-shrink-0';
+
+        const content=document.createElement('div');
+        content.className='flex-1 min-w-0';
+
+        if(p.text?.trim()){
+          const t=document.createElement('div');
+          t.className='text-slate-800 whitespace-pre-wrap break-words';
+          t.textContent=p.text.trim();
+          content.appendChild(t);
+        }
+
+        if(p.images?.length){
+          const grid=document.createElement('div');
+          grid.className='mt-2 grid grid-cols-3 gap-1';
+          for(const src of p.images.slice(0,9)){
+            const img=document.createElement('img');
+            img.loading='lazy'; img.src=src; img.alt='图';
+            img.className='w-full object-cover rounded border';
+            img.style.aspectRatio='1 / 1';
+            grid.appendChild(img);
+          }
+          content.appendChild(grid);
+        }
+
+        const meta=document.createElement('div');
+        meta.className='absolute right-3 bottom-2 text-xs text-slate-500';
+        const d=new Date(p.createdAt);
+        meta.textContent=`${d.getMonth()+1}-${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+        content.appendChild(meta);
+
+        // 交替头像位置：偶数在左，奇数在右
+        if(idx % 2 === 0){
+          row.appendChild(avatar);
+          row.appendChild(content);
+        } else {
+          row.appendChild(content);
+          row.appendChild(avatar);
+        }
+
+        feedEl.appendChild(row);
+      });
+    }
+
+    // 简易字符串 hash 用于头像随机
+    if(!String.prototype.hashCode){
+      Object.defineProperty(String.prototype,'hashCode',{ value: function(){ let h=0; for(let i=0;i<this.length;i++){ h=(h<<5)-h+this.charCodeAt(i); h|=0;} return h; }, enumerable:false });
+    }
+
+    imageInput.addEventListener('change',()=>{
+      thumbs.innerHTML='';
+      const files=Array.from(imageInput.files||[]).slice(0,9);
+      for(const f of files){
+        const url=URL.createObjectURL(f);
+        const img=document.createElement('img');
+        img.src=url; img.alt=f.name; img.className='w-full h-16 object-cover rounded border';
+        thumbs.appendChild(img);
+      }
+    });
+
+    fabPublish.addEventListener('click',()=> publishOverlay.classList.remove('hidden'));
+    closeOverlay.addEventListener('click',()=> publishOverlay.classList.add('hidden'));
+    publishOverlay.addEventListener('click',(e)=>{ if(e.target===publishOverlay) publishOverlay.classList.add('hidden'); });
+
+    submitBtn.addEventListener('click',(e)=>{
+      e.preventDefault();
+      const text=(textInput.value||'').trim();
+      const files=Array.from(imageInput.files||[]).slice(0,9);
+      if(text.length===0 && files.length===0) return;
+      const images=files.map(f=> URL.createObjectURL(f));
+      posts.push({ id:String(Date.now()), text, images, createdAt: Date.now() });
+      textInput.value=''; imageInput.value=''; thumbs.innerHTML='';
+      publishOverlay.classList.add('hidden');
+      renderFeed();
+      // 通知父页面刷新统计
+      try{ parent.postMessage({ type:'posts-updated', payload:{ postsCount: posts.length, imagesCount: posts.reduce((s,p)=> s+(p.images?.length||0),0), textCount: posts.reduce((s,p)=> s+(p.text?.trim()?1:0),0) } }, '*'); }catch(err){}
+    });
+    resetBtn.addEventListener('click',()=>{ textInput.value=''; imageInput.value=''; thumbs.innerHTML=''; });
+
+    // 底部 Tab 行为
+    tabFeed.addEventListener('click',()=>{
+      tabFeed.classList.add('text-blue-600','font-medium');
+      tabProfile.classList.remove('text-blue-600','font-medium');
+      // 本页即是“发现”，无需跳转
+      try{ parent.postMessage({ type:'nav', target:'feed' }, '*'); }catch(err){}
+    });
+    tabProfile.addEventListener('click',()=>{
+      tabProfile.classList.add('text-blue-600','font-medium');
+      tabFeed.classList.remove('text-blue-600','font-medium');
+      // 通知父页面定位到“我的”
+      try{ parent.postMessage({ type:'nav', target:'profile' }, '*'); }catch(err){}
+    });
+
+    renderFeed();
+  </script>
+</body>
+</html>
+
+

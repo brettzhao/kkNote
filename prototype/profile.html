@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>我的 - Profile</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://unpkg.com/tdesign-miniprogram@latest/miniprogram_dist/style/index.css">
+  <style> body{ background:#f6f7f9; } </style>
+</head>
+<body class="text-gray-900">
+  <header class="sticky top-0 z-10 bg-white border-b border-gray-200">
+    <div class="px-4 py-3 flex items-center justify-between">
+      <div class="font-semibold text-slate-800">我的</div>
+      <div class="text-sm text-slate-500">TDesign 风格</div>
+    </div>
+  </header>
+
+  <main class="p-3 space-y-3">
+    <section class="rounded-xl border border-gray-200 bg-white p-4 flex items-center gap-3">
+      <img src="https://i.pravatar.cc/120?img=12" alt="avatar" class="w-14 h-14 rounded-full border">
+      <div>
+        <div class="text-slate-800 font-semibold">User_0012</div>
+        <div class="text-xs text-slate-500">ID: 0012</div>
+      </div>
+    </section>
+
+    <section class="grid grid-cols-3 gap-2">
+      <div class="rounded-xl border border-gray-200 bg-white p-3 text-center">
+        <div id="statPosts" class="text-lg font-bold">0</div>
+        <div class="text-xs text-slate-500 mt-1">发布条数</div>
+      </div>
+      <div class="rounded-xl border border-gray-200 bg-white p-3 text-center">
+        <div id="statImages" class="text-lg font-bold">0</div>
+        <div class="text-xs text-slate-500 mt-1">图片数量</div>
+      </div>
+      <div class="rounded-xl border border-gray-200 bg-white p-3 text-center">
+        <div id="statTexts" class="text-lg font-bold">0</div>
+        <div class="text-xs text-slate-500 mt-1">文字条数</div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const statPosts=document.getElementById('statPosts');
+    const statImages=document.getElementById('statImages');
+    const statTexts=document.getElementById('statTexts');
+
+    function updateProfileFromMessage(data){
+      const { postsCount, imagesCount, textCount } = data.payload||{};
+      if(typeof postsCount==='number') statPosts.textContent=String(postsCount);
+      if(typeof imagesCount==='number') statImages.textContent=String(imagesCount);
+      if(typeof textCount==='number') statTexts.textContent=String(textCount);
+    }
+
+    window.addEventListener('message',(e)=>{
+      if(!e?.data?.type) return;
+      if(e.data.type==='posts-updated'){ updateProfileFromMessage(e.data); }
+    });
+  </script>
+</body>
+</html>
+
+
