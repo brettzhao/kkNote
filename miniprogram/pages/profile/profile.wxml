@@ -1,0 +1,49 @@
+<!--profile页面-->
+<view class="profile-container">
+  <!-- 用户信息卡片 -->
+  <view class="user-card">
+    <t-avatar 
+      size="120rpx" 
+      image="{{userInfo.avatar}}" 
+      class="user-avatar"
+    />
+    <view class="user-info">
+      <text class="user-name">{{userInfo.name}}</text>
+      <text class="user-id">ID: {{userInfo.id}}</text>
+    </view>
+  </view>
+
+  <!-- 统计数据 -->
+  <view class="stats-section">
+    <view class="stats-grid">
+      <view class="stat-item">
+        <text class="stat-number">{{stats.postsCount}}</text>
+        <text class="stat-label">发布条数</text>
+      </view>
+      <view class="stat-item">
+        <text class="stat-number">{{stats.imagesCount}}</text>
+        <text class="stat-label">图片数量</text>
+      </view>
+      <view class="stat-item">
+        <text class="stat-number">{{stats.textCount}}</text>
+        <text class="stat-label">文字条数</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 功能菜单 -->
+  <t-cell-group class="menu-group">
+    <t-cell 
+      title="设置" 
+      left-icon="setting" 
+      arrow
+      bind:click="onSettingClick"
+    />
+    <t-cell 
+      title="关于" 
+      left-icon="info-circle" 
+      arrow
+      bind:click="onAboutClick"
+    />
+  </t-cell-group>
+</view>
