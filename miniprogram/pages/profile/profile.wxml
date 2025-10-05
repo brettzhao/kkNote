@@ -1,49 +1,57 @@
 <!--profile页面-->
 <view class="profile-container">
-  <!-- 用户信息卡片 -->
-  <view class="user-card">
-    <t-avatar 
-      size="120rpx" 
-      image="{{userInfo.avatar}}" 
-      class="user-avatar"
-    />
-    <view class="user-info">
-      <text class="user-name">{{userInfo.name}}</text>
-      <text class="user-id">ID: {{userInfo.id}}</text>
+  
+  <!-- Loading界面 -->
+  <view class="loading-container" wx:if="{{isLoading}}">
+    <view class="loading-content">
+      <view class="loading-spinner">
+        <view class="spinner"></view>
+      </view>
+      <text class="loading-text">正在加载用户信息...</text>
     </view>
   </view>
+  
+  <!-- 主要内容 -->
+  <view class="main-content" wx:else>
+    <!-- 用户信息卡片 -->
+    <view class="user-card" bind:tap="onUserCardTap">
+      <view class="avatar-section">
+        <image 
+          src="{{userInfo.avatarUrl || defaultAvatar}}" 
+          class="user-avatar"
+        />
+      </view>
+      
+      <view class="user-info">
+        <view class="user-name-section">
+          <text class="user-name">{{userInfo.nickName || '微信用户'}}</text>
+        </view>
+      </view>
+    </view>
 
-  <!-- 统计数据 -->
-  <view class="stats-section">
-    <view class="stats-grid">
-      <view class="stat-item">
-        <text class="stat-number">{{stats.postsCount}}</text>
-        <text class="stat-label">发布条数</text>
+    <!-- 统计数据 -->
+    <view class="stats-section">
+      <view class="section-title">
+        <text class="title-text">我的发布</text>
       </view>
-      <view class="stat-item">
-        <text class="stat-number">{{stats.imagesCount}}</text>
-        <text class="stat-label">图片数量</text>
-      </view>
-      <view class="stat-item">
-        <text class="stat-number">{{stats.textCount}}</text>
-        <text class="stat-label">文字条数</text>
+      
+      <view class="stats-grid">
+        <view class="stat-item">
+          <view class="stat-icon">📝</view>
+          <text class="stat-number">{{stats.postsCount}}</text>
+          <text class="stat-label">发布条数</text>
+        </view>
+        <view class="stat-item">
+          <view class="stat-icon">📷</view>
+          <text class="stat-number">{{stats.imagesCount}}</text>
+          <text class="stat-label">图片数量</text>
+        </view>
+        <view class="stat-item">
+          <view class="stat-icon">✍️</view>
+          <text class="stat-number">{{stats.textCount}}</text>
+          <text class="stat-label">文字数量</text>
+        </view>
       </view>
     </view>
   </view>
-
-  <!-- 功能菜单 -->
-  <t-cell-group class="menu-group">
-    <t-cell 
-      title="设置" 
-      left-icon="setting" 
-      arrow
-      bind:click="onSettingClick"
-    />
-    <t-cell 
-      title="关于" 
-      left-icon="info-circle" 
-      arrow
-      bind:click="onAboutClick"
-    />
-  </t-cell-group>
 </view>

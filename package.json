@@ -7,6 +7,9 @@
   "author": "",
   "license": "",
   "dependencies": {
+    "js-calendar-converter": "^0.0.7",
+    "lunar-calendar": "^0.1.4",
+    "lunar-javascript": "^1.7.5",
     "tdesign-miniprogram": "^1.10.1"
   },
   "devDependencies": {

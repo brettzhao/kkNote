@@ -8,9 +8,16 @@
     "navigationBarTitleText": "《考考笔记本》",
     "navigationBarBackgroundColor": "#ffffff"
   },
+  "cloud": true,
+  "permission": {
+    "scope.userInfo": {
+      "desc": "用于完善用户资料"
+    }
+  },
+  "cloudfunctionRoot": "cloudfunctions/",
   "tabBar": {
     "color": "#999999",
-    "selectedColor": "#0052d9",
+    "selectedColor": "#F9C0C4",
     "backgroundColor": "#ffffff",
     "borderStyle": "white",
     "list": [
@@ -18,13 +25,13 @@
         "pagePath": "pages/moment/moment",
         "text": "Moment",
         "iconPath": "icon/for_us.png",
-        "selectedIconPath": "icon/for_s.png"
+        "selectedIconPath": "icon/for.png"
       },
       {
         "pagePath": "pages/profile/profile",
         "text": "Me",
         "iconPath": "icon/koa_us.png",
-        "selectedIconPath": "icon/koa_s.png"
+        "selectedIconPath": "icon/koa.png"
       }
     ]
   },

@@ -1,11 +1,21 @@
 // moment页面逻辑
+import { initCloud } from '../../utils/auth';
+import { getPosts, addPost, deletePost, uploadFile, recordImageViewAction, recordPublishAction, recordDeleteAction, recordEnterAppAction, recordRefreshAction, recordLoadMoreAction } from '../../utils/cloud';
+import { testCloudConnection, getCloudInfo } from '../../utils/cloud-test';
+import { getTodayLunarDate } from '../../utils/lunar';
+
 interface Post {
+  
+  _id?: string;
   id: string;
+  openid: string;
   text: string;
   images: string[];
   avatar: string;
   time: string;
+  momentTime: string;
   createdAt: number;
+  deleted?: boolean;
 }
 
 Page({
@@ -13,95 +23,263 @@ Page({
     posts: [] as Post[],
     showPublish: false,
     publishText: '',
-    publishImages: [] as any[],
-    gridConfig: {
-      column: 3,
-      width: 120,
-      height: 120
-    },
+    publishImages: [] as string[],
+    publishTime: new Date().toISOString(),
+    formattedPublishTime: '',
+    publishing: false,
+    timePickerRange: [[], [], [], [], []], // 年、月、日、时、分的选项
+    timePickerValue: [0, 0, 0, 0, 0], // 当前选中的索引
+    showDeleteOptions: false,
+    selectedPostId: '',
+    // 分页相关
+    pageSize: 10, // 每页加载10条数据
+    currentPage: 0, // 当前页码
+    hasMore: true, // 是否还有更多数据
+    loading: false, // 是否正在加载
+    refreshing: false, // 是否正在刷新
+    // 图片预览相关
+    showImagePreview: false, // 是否显示图片预览
+    previewImageUrl: '', // 预览图片URL
+    imageScale: 1, // 图片缩放比例
+    imageTranslateX: 0, // 图片X轴偏移
+    imageTranslateY: 0, // 图片Y轴偏移
+    startDistance: 0, // 双指开始距离
+    startScale: 1, // 开始缩放比例
+    lastTouchX: 0, // 上次触摸X坐标
+    lastTouchY: 0, // 上次触摸Y坐标
     currentDate: {
       year: '',
       month: '',
       day: ''
     },
     weatherInfo: {
-      temp: '22',
-      desc: '晴朗',
-      icon: '☀️'
+      temp: '--',
+      desc: '获取中...',
+      icon: '🌤️',
+      city: '',
+      winddirection: '',
+      windpower: '',
+      humidity: '',
+      loading: true,
+      error: false,
+      location: '', // 添加位置坐标显示
+      coordinates: '' // 添加坐标信息
     },
     countdownDays: 0,
     lunarDate: ''
   },
 
   onLoad() {
-    this.loadSampleData();
-    this.updateDateInfo();
-    this.updateCountdown();
-    this.updateLunarDate();
+    console.log('moment页面加载');
+    
+    // 初始化云开发
+    initCloud();
+    
+    // 检查云开发状态
+    this.checkCloudStatus();
+    
+    this.initDate();
+    this.initCountdown();
+    this.initPublishTime();
+    this.loadPosts();
+    this.initWeather();
+    
+    // 记录进入应用行为
+    recordEnterAppAction();
   },
 
   onShow() {
     // 页面显示时刷新数据
-    this.loadPosts();
-    this.updateDateInfo();
-    this.updateCountdown();
-    this.updateLunarDate();
+    this.loadPosts(true);
+    // 重新初始化发布时间为当前时间
+    this.initPublishTime();
   },
 
-  // 加载示例数据
-  loadSampleData() {
-    const sampleImages = [
-      "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=600&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1470770903676-69b98201ea1c?q=80&w=600&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?q=80&w=600&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1500534310201-bbddc30730ca?q=80&w=600&auto=format&fit=crop"
-    ];
-
-    const samplePosts: Post[] = [
-      {
-        id: '1',
-        text: '周末踏青，心情很好',
-        images: [sampleImages[0], sampleImages[1]],
-        avatar: 'https://i.pravatar.cc/80?img=1',
-        time: '12-25 14:30',
-        createdAt: Date.now() - 3600000
-      },
-      {
-        id: '2',
-        text: '城市一角',
-        images: [sampleImages[2]],
-        avatar: 'https://i.pravatar.cc/80?img=2',
-        time: '12-25 13:15',
-        createdAt: Date.now() - 7200000
-      },
-      {
-        id: '3',
-        text: '记录此刻的美好',
-        images: [sampleImages[0], sampleImages[1], sampleImages[2], sampleImages[3]],
-        avatar: 'https://i.pravatar.cc/80?img=3',
-        time: '12-25 11:45',
-        createdAt: Date.now() - 10800000
-      }
-    ];
-
-    this.setData({
-      posts: samplePosts
+  // 下拉刷新
+  onPullDownRefresh() {
+    console.log('下拉刷新');
+    this.setData({ refreshing: true });
+    this.loadPosts(true).then(() => {
+      wx.stopPullDownRefresh();
+      // 记录下拉刷新行为
+      recordRefreshAction();
     });
   },
 
-  // 从本地存储加载动态
-  loadPosts() {
-    const posts = wx.getStorageSync('posts') || [];
-    this.setData({ posts });
+  // 上拉加载更多
+  onReachBottom() {
+    console.log('上拉加载更多');
+    if (this.data.hasMore && !this.data.loading) {
+      this.loadPosts(false);
+      // 记录上拉加载更多行为
+      recordLoadMoreAction(this.data.currentPage + 1);
+    }
   },
 
-  // 保存动态到本地存储
+  // 检查云开发状态
+  async checkCloudStatus() {
+    console.log('检查云开发状态...');
+    
+    // 获取云开发信息
+    const cloudInfo = getCloudInfo();
+    console.log('云开发信息:', cloudInfo);
+    
+    if (!cloudInfo.hasCloud) {
+      console.warn('云开发未初始化，将使用本地数据');
+      return;
+    }
+    
+    // 测试云开发连接
+    const testResult = await testCloudConnection();
+    console.log('云开发连接测试结果:', testResult);
+    
+    if (!testResult.success) {
+      console.warn('云开发连接失败，将使用本地数据:', testResult.error);
+    }
+  },
+
+
+  // 初始化日期信息
+  initDate() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const day = now.getDate();
+    
+    try {
+      // 获取农历日期
+      const lunarDate = getTodayLunarDate();
+      
+      this.setData({
+        currentDate: {
+          year: year.toString(),
+          month: month.toString(),
+          day: day.toString()
+        },
+        lunarDate: lunarDate
+      });
+      
+      console.log('日期初始化完成:', {
+        solar: `${year}年${month}月${day}日`,
+        lunar: lunarDate
+      });
+    } catch (error) {
+      console.error('农历日期获取失败:', error);
+      // 如果农历获取失败，不设置农历日期，只设置公历日期
+      this.setData({
+        currentDate: {
+          year: year.toString(),
+          month: month.toString(),
+          day: day.toString()
+        },
+        lunarDate: ''
+      });
+    }
+  },
+
+  // 初始化倒计时
+  initCountdown() {
+    try {
+      // 目标日期：2025年9月17日
+      const targetDate = new Date(2025, 8, 17); // 月份从0开始，所以8代表9月
+      const currentDate = new Date();
+      
+      // 计算时间差（毫秒）
+      const timeDiff = targetDate.getTime() - currentDate.getTime();
+      
+      // 转换为天数
+      const daysDiff = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+      
+      console.log('倒计时计算:', {
+        targetDate: targetDate.toDateString(),
+        currentDate: currentDate.toDateString(),
+        daysDiff: daysDiff
+      });
+      
+      this.setData({
+        countdownDays: daysDiff
+      });
+      
+      console.log(`距离2025年9月17日还有 ${daysDiff} 天`);
+    } catch (error) {
+      console.error('倒计时计算失败:', error);
+      this.setData({
+        countdownDays: 0
+      });
+    }
+  },
+
+  // 加载动态数据（分页）
+  async loadPosts(refresh = false) {
+    if (this.data.loading) return;
+    
+    this.setData({ loading: true });
+    
+    try {
+      const newPosts = await this.loadPostsFromCloud(refresh);
+      
+      if (refresh) {
+        // 刷新时替换所有数据
+        this.setData({ 
+          posts: newPosts,
+          currentPage: 1,
+          hasMore: newPosts.length === this.data.pageSize
+        });
+      } else {
+        // 加载更多时追加数据
+        const allPosts = [...this.data.posts, ...newPosts];
+        this.setData({ 
+          posts: allPosts,
+          currentPage: this.data.currentPage + 1,
+          hasMore: newPosts.length === this.data.pageSize
+        });
+      }
+      
+      // 保存到本地存储作为缓存
+      wx.setStorageSync('posts', this.data.posts);
+    } catch (error) {
+      console.error('从云数据库加载动态失败:', error);
+      // 如果云数据库加载失败，使用本地存储
+      const posts = wx.getStorageSync('posts') || [];
+      this.setData({ posts });
+    } finally {
+      this.setData({ loading: false, refreshing: false });
+    }
+  },
+
+  // 从云数据库加载动态数据（分页）
+  async loadPostsFromCloud(refresh = false): Promise<Post[]> {
+    const allPosts = await getPosts();
+    // 过滤掉已删除的动态
+    const validPosts = allPosts.filter(post => !post.deleted);
+    
+    // 按momentTime倒序排列（最新的在前）
+    validPosts.sort((a, b) => {
+      const timeA = new Date(a.momentTime).getTime();
+      const timeB = new Date(b.momentTime).getTime();
+      return timeB - timeA;
+    });
+    
+    if (refresh) {
+      // 刷新时返回第一页数据
+      return validPosts.slice(0, this.data.pageSize);
+    } else {
+      // 加载更多时返回下一页数据
+      const startIndex = this.data.currentPage * this.data.pageSize;
+      const endIndex = startIndex + this.data.pageSize;
+      return validPosts.slice(startIndex, endIndex);
+    }
+  },
+
+  // 保存动态数据
   savePosts() {
     wx.setStorageSync('posts', this.data.posts);
   },
 
   // 显示发布弹窗
   showPublishPopup() {
+    // 重新初始化发布时间为当前时间
+    this.initPublishTime();
     this.setData({ showPublish: true });
   },
 
@@ -120,22 +298,387 @@ Page({
     this.setData({ publishText: e.detail.value });
   },
 
-  // 图片变化
-  onImageChange(e: any) {
-    this.setData({ publishImages: e.detail.value });
+  // 选择图片
+  chooseImage() {
+    console.log('chooseImage 方法被调用');
+    
+    const { publishImages } = this.data;
+    const remainingCount = 9 - publishImages.length;
+    
+    console.log('当前图片数量:', publishImages.length, '剩余可添加:', remainingCount);
+    
+    if (remainingCount <= 0) {
+      wx.showToast({
+        title: '最多只能选择9张图片',
+        icon: 'none'
+      });
+      return;
+    }
+    
+    wx.chooseMedia({
+      count: remainingCount,
+      mediaType: ['image'],
+      sourceType: ['album', 'camera'],
+      success: (res) => {
+        console.log('选择图片成功:', res);
+        const newImages = res.tempFiles.map(file => file.tempFilePath);
+        this.setData({
+          publishImages: [...publishImages, ...newImages]
+        });
+        console.log('更新后的图片数组:', [...publishImages, ...newImages]);
+      },
+      fail: (error) => {
+        console.error('选择图片失败', error);
+        // 不显示错误提示，用户可能只是取消了选择
+      }
+    });
   },
+
+  // 移除图片
+  removeImage(e: any) {
+    const index = e.currentTarget.dataset.index;
+    const { publishImages } = this.data;
+    publishImages.splice(index, 1);
+    this.setData({ publishImages });
+  },
+
+  // 初始化发布时间
+  initPublishTime() {
+    const now = new Date();
+    const publishTime = now.toISOString();
+    const formattedTime = this.formatTime(now);
+    
+    console.log('初始化发布时间:', { now, publishTime, formattedTime });
+    
+    this.setData({
+      publishTime: publishTime,
+      formattedPublishTime: formattedTime
+    });
+    
+    // 初始化picker数据
+    this.initTimePickerData(now);
+    
+    console.log('发布时间初始化完成:', this.data.publishTime);
+  },
+
+  // 初始化时间选择器数据
+  initTimePickerData(date: Date) {
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const hour = date.getHours();
+    const minute = date.getMinutes();
+
+    // 生成年份选项（当前年份前后5年）
+    const years = [];
+    for (let i = year - 5; i <= year + 5; i++) {
+      years.push(i.toString());
+    }
+
+    // 生成月份选项
+    const months = [];
+    for (let i = 1; i <= 12; i++) {
+      months.push(i.toString().padStart(2, '0'));
+    }
+
+    // 生成日期选项（根据当前月份）
+    const days = [];
+    const daysInMonth = new Date(year, month, 0).getDate();
+    for (let i = 1; i <= daysInMonth; i++) {
+      days.push(i.toString().padStart(2, '0'));
+    }
+
+    // 生成小时选项
+    const hours = [];
+    for (let i = 0; i < 24; i++) {
+      hours.push(i.toString().padStart(2, '0'));
+    }
+
+    // 生成分钟选项
+    const minutes = [];
+    for (let i = 0; i < 60; i++) {
+      minutes.push(i.toString().padStart(2, '0'));
+    }
+
+    // 计算当前选中的索引
+    const yearIndex = years.indexOf(year.toString());
+    const monthIndex = month - 1;
+    const dayIndex = day - 1;
+    const hourIndex = hour;
+    const minuteIndex = minute;
+
+    this.setData({
+      timePickerRange: [years, months, days, hours, minutes] as any,
+      timePickerValue: [yearIndex, monthIndex, dayIndex, hourIndex, minuteIndex]
+    });
+  },
+
+  // 原生picker时间选择器变化
+  onTimePickerChange(e: any) {
+    const { timePickerRange } = this.data;
+    const [yearIndex, monthIndex, dayIndex, hourIndex, minuteIndex] = e.detail.value;
+    
+    const year = parseInt(timePickerRange[0][yearIndex]);
+    const month = parseInt(timePickerRange[1][monthIndex]);
+    const day = parseInt(timePickerRange[2][dayIndex]);
+    const hour = parseInt(timePickerRange[3][hourIndex]);
+    const minute = parseInt(timePickerRange[4][minuteIndex]);
+    
+    const selectedDate = new Date(year, month - 1, day, hour, minute);
+    const publishTime = selectedDate.toISOString();
+    const formattedTime = this.formatTime(selectedDate);
+    
+    this.setData({
+      publishTime: publishTime,
+      formattedPublishTime: formattedTime,
+      timePickerValue: [yearIndex, monthIndex, dayIndex, hourIndex, minuteIndex]
+    });
+  },
+
+  // 原生picker列变化（处理月份变化时更新日期选项）
+  onTimePickerColumnChange(e: any) {
+    const { column, value } = e.detail;
+    const { timePickerRange, timePickerValue } = this.data;
+    
+    // 如果月份发生变化，需要更新日期选项
+    if (column === 1) {
+      const yearIndex = timePickerValue[0];
+      const monthIndex = value;
+      const year = parseInt(timePickerRange[0][yearIndex]);
+      const month = parseInt(timePickerRange[1][monthIndex]);
+      
+      // 计算该月的天数
+      const daysInMonth = new Date(year, month, 0).getDate();
+      const days = [];
+      for (let i = 1; i <= daysInMonth; i++) {
+        days.push(i.toString().padStart(2, '0'));
+      }
+      
+      // 更新日期选项
+      const newTimePickerRange = [...timePickerRange] as any;
+      newTimePickerRange[2] = days;
+      
+      // 如果当前选中的日期超出了新月份的天数，则选择最后一天
+      let dayIndex = timePickerValue[2];
+      if (dayIndex >= daysInMonth) {
+        dayIndex = daysInMonth - 1;
+      }
+      
+      const newTimePickerValue = [...timePickerValue];
+      newTimePickerValue[1] = monthIndex;
+      newTimePickerValue[2] = dayIndex;
+      
+      this.setData({
+        timePickerRange: newTimePickerRange,
+        timePickerValue: newTimePickerValue
+      });
+    }
+  },
+
+  // 格式化momentTime显示
+  formatMomentTime(momentTime: string): string {
+    const date = new Date(momentTime);
+    return this.formatTime(date);
+  },
+
+  // 格式化momentTime为简洁格式 (10/4 20:50)
+  formatMomentTimeShort(momentTime: string): string {
+    console.log('格式化momentTime');
+    if (!momentTime) return '';
+    
+    const date = new Date(momentTime);
+    const month = date.getMonth() + 1; // 月份从0开始，需要+1
+    const day = date.getDate();
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
+    
+    // 格式化为 M/D HH:MM
+    const formattedTime = `${month}/${day} ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+    
+    return formattedTime;
+  },
+
+  // 图片点击预览
+  onImageTap(e: any) {
+    const { url, postid } = e.currentTarget.dataset;
+    console.log('点击图片预览:', url);
+    
+    this.setData({
+      showImagePreview: true,
+      previewImageUrl: url
+    });
+    
+    // 记录图片查看行为
+    recordImageViewAction(url, postid || '');
+  },
+
+  // 关闭图片预览
+  onImagePreviewClose() {
+    this.setData({
+      showImagePreview: false,
+      previewImageUrl: '',
+      imageScale: 1,
+      imageTranslateX: 0,
+      imageTranslateY: 0
+    });
+  },
+
+  // 图片缩放开始
+  onImageTouchStart(e: any) {
+    if (e.touches.length === 2) {
+      // 双指触摸开始
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const distance = Math.sqrt(
+        Math.pow(touch2.clientX - touch1.clientX, 2) + 
+        Math.pow(touch2.clientY - touch1.clientY, 2)
+      );
+      
+      this.setData({
+        startDistance: distance,
+        startScale: this.data.imageScale
+      });
+    }
+  },
+
+  // 图片缩放中
+  onImageTouchMove(e: any) {
+    if (e.touches.length === 2) {
+      // 双指缩放
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const distance = Math.sqrt(
+        Math.pow(touch2.clientX - touch1.clientX, 2) + 
+        Math.pow(touch2.clientY - touch1.clientY, 2)
+      );
+      
+      const { startDistance, startScale } = this.data;
+      if (startDistance > 0) {
+        const scale = startScale * (distance / startDistance);
+        const clampedScale = Math.max(0.5, Math.min(scale, 3)); // 限制缩放范围 0.5-3倍
+        
+        this.setData({
+          imageScale: clampedScale
+        });
+      }
+    } else if (e.touches.length === 1 && this.data.imageScale > 1) {
+      // 单指拖拽（仅在放大状态下）
+      const touch = e.touches[0];
+      const deltaX = touch.clientX - (this.data.lastTouchX || touch.clientX);
+      const deltaY = touch.clientY - (this.data.lastTouchY || touch.clientY);
+      
+      this.setData({
+        imageTranslateX: this.data.imageTranslateX + deltaX,
+        imageTranslateY: this.data.imageTranslateY + deltaY,
+        lastTouchX: touch.clientX,
+        lastTouchY: touch.clientY
+      });
+    }
+  },
+
+  // 图片触摸结束
+  onImageTouchEnd() {
+    this.setData({
+      startDistance: 0,
+      lastTouchX: 0,
+      lastTouchY: 0
+    });
+  },
+
+  // 图片长按保存
+  onImageLongPress() {
+    const { previewImageUrl } = this.data;
+    if (!previewImageUrl) return;
+    
+    wx.showActionSheet({
+      itemList: ['保存图片'],
+      success: (res) => {
+        if (res.tapIndex === 0) {
+          this.saveImageToAlbum(previewImageUrl);
+        }
+      }
+    });
+  },
+
+  // 保存图片到相册
+  saveImageToAlbum(imageUrl: string) {
+    wx.showLoading({ title: '保存中...' });
+    
+    // 如果是云存储图片，需要先下载
+    if (imageUrl.startsWith('cloud://')) {
+      wx.cloud.downloadFile({
+        fileID: imageUrl,
+        success: (res) => {
+          this.saveLocalImage(res.tempFilePath);
+        },
+        fail: (error) => {
+          console.error('下载图片失败:', error);
+          wx.hideLoading();
+          wx.showToast({
+            title: '保存失败',
+            icon: 'none'
+          });
+        }
+      });
+    } else {
+      // 直接保存网络图片
+      this.saveLocalImage(imageUrl);
+    }
+  },
+
+  // 保存本地图片
+  saveLocalImage(imagePath: string) {
+    wx.saveImageToPhotosAlbum({
+      filePath: imagePath,
+      success: () => {
+        wx.hideLoading();
+        wx.showToast({
+          title: '保存成功',
+          icon: 'success'
+        });
+      },
+      fail: (error) => {
+        console.error('保存图片失败:', error);
+        wx.hideLoading();
+        
+        if (error.errMsg.includes('auth deny')) {
+          wx.showModal({
+            title: '提示',
+            content: '需要授权访问相册才能保存图片',
+            confirmText: '去设置',
+            success: (res) => {
+              if (res.confirm) {
+                wx.openSetting();
+              }
+            }
+          });
+        } else {
+          wx.showToast({
+            title: '保存失败',
+            icon: 'none'
+          });
+        }
+      }
+    });
+  },
+
 
   // 重置发布内容
   resetPublish() {
+    console.log('resetPublish 方法被调用');
     this.setData({
       publishText: '',
       publishImages: []
     });
+    this.initPublishTime();
   },
 
   // 提交发布
-  submitPublish() {
+  async submitPublish() {
+    console.log('submitPublish 方法被调用');
+    
     const { publishText, publishImages } = this.data;
+    console.log('发布内容:', { publishText, publishImages });
     
     if (!publishText.trim() && publishImages.length === 0) {
       wx.showToast({
@@ -145,125 +688,641 @@ Page({
       return;
     }
 
-    const newPost: Post = {
-      id: Date.now().toString(),
-      text: publishText.trim(),
-      images: publishImages.map((img: any) => img.url || img),
-      avatar: 'https://i.pravatar.cc/80?img=' + (Math.floor(Math.random() * 70) + 1),
-      time: this.formatTime(new Date()),
-      createdAt: Date.now()
-    };
+    // 检查用户登录状态
+    const openid = wx.getStorageSync('openid');
+    if (!openid) {
+      wx.showToast({
+        title: '请先登录',
+        icon: 'none'
+      });
+      return;
+    }
 
-    const posts = [newPost, ...this.data.posts];
-    this.setData({ posts });
-    this.savePosts();
+    this.setData({ publishing: true });
 
-    // 重置发布内容
-    this.resetPublish();
-    this.hidePublishPopup();
+    try {
+      // 上传图片到云存储
+      const uploadedImages = await this.uploadImages(publishImages);
+      
+      // 获取用户信息
+      const userInfo = wx.getStorageSync('userInfo') || {};
+      
+      // 创建新动态
+      const momentTime = new Date(this.data.publishTime);
+      const newPost: Post = {
+        id: Date.now().toString(),
+        openid: openid,
+        text: publishText.trim(),
+        images: uploadedImages,
+        avatar: userInfo.avatarUrl || 'https://i.pravatar.cc/80?img=1',
+        time: this.formatTime(momentTime),
+        momentTime: this.data.publishTime,
+        createdAt: Date.now()
+      };
 
-    // 显示成功提示
-    wx.showToast({
-      title: '发布成功',
-      icon: 'success'
+      // 保存到云数据库
+      await this.savePostToCloud(newPost);
+
+      // 记录发布行为
+      recordPublishAction(newPost);
+
+      // 更新本地数据 - 按momentTime排序插入
+      const allPosts = [newPost, ...this.data.posts];
+      // 重新按momentTime排序
+      allPosts.sort((a, b) => {
+        const timeA = new Date(a.momentTime).getTime();
+        const timeB = new Date(b.momentTime).getTime();
+        return timeB - timeA;
+      });
+      this.setData({ posts: allPosts });
+      this.savePosts();
+
+      // 重置发布内容
+      this.resetPublish();
+      this.hidePublishPopup();
+
+      // 显示成功提示
+      wx.showToast({
+        title: '发布成功',
+        icon: 'success'
+      });
+
+    } catch (error) {
+      console.error('发布失败:', error);
+      wx.showToast({
+        title: '发布失败，请重试',
+        icon: 'none'
+      });
+    } finally {
+      this.setData({ publishing: false });
+    }
+  },
+
+  // 上传图片到云存储
+  async uploadImages(images: string[]): Promise<string[]> {
+    if (images.length === 0) return [];
+    
+    const uploadPromises = images.map(async (imagePath, index) => {
+      try {
+        const cloudPath = `images/posts/${Date.now()}_${index}.jpg`;
+        const result = await uploadFile(imagePath, cloudPath);
+        return result.fileID;
+      } catch (error) {
+        console.error('上传图片失败:', error);
+        throw error;
+      }
     });
 
-    // 通知其他页面更新统计
-    this.notifyStatsUpdate();
+    return await Promise.all(uploadPromises);
+  },
+
+  // 保存动态到云数据库
+  async savePostToCloud(post: Post) {
+    return await addPost(post);
+  },
+
+  // 长按动态项
+  onPostLongPress(e: any) {
+    const postId = e.currentTarget.dataset.id;
+    const currentOpenid = wx.getStorageSync('openid');
+    
+    console.log('长按动态项:', { postId, currentOpenid });
+    
+    // 1. 检查用户是否已登录
+    if (!currentOpenid) {
+      console.log('用户未登录，无法删除动态');
+      wx.showToast({
+        title: '请先登录',
+        icon: 'none',
+        duration: 2000
+      });
+      return;
+    }
+
+    // 2. 查找对应的动态
+    const post = this.data.posts.find(p => p.id === postId);
+    if (!post) {
+      console.log('动态不存在:', postId);
+      wx.showToast({
+        title: '动态不存在',
+        icon: 'none',
+        duration: 2000
+      });
+      return;
+    }
+
+    // 3. 检查动态是否已被删除
+    if (post.deleted) {
+      console.log('动态已被删除:', postId);
+      wx.showToast({
+        title: '动态已被删除',
+        icon: 'none',
+        duration: 2000
+      });
+      return;
+    }
+
+    // 4. 检查权限：只有动态的创建者才能删除
+    if (post.openid !== currentOpenid) {
+      console.log('权限不足:', { 
+        postOpenid: post.openid, 
+        currentOpenid: currentOpenid 
+      });
+      wx.showToast({
+        title: '只能删除自己的动态',
+        icon: 'none',
+        duration: 2000
+      });
+      return;
+    }
+
+    // 5. 权限验证通过，显示删除选项
+    console.log('权限验证通过，显示删除选项');
+    this.setData({
+      selectedPostId: postId,
+      showDeleteOptions: true
+    });
+  },
+
+  // 删除选项弹窗显示状态变化
+  onDeleteOptionsVisibleChange(e: any) {
+    this.setData({
+      showDeleteOptions: e.detail.visible
+    });
+  },
+
+  // 确认删除
+  async confirmDelete() {
+    const { selectedPostId } = this.data;
+    const currentOpenid = wx.getStorageSync('openid');
+    
+    if (!selectedPostId) {
+      console.log('没有选中的动态ID');
+      return;
+    }
+
+    if (!currentOpenid) {
+      console.log('用户未登录，无法删除动态');
+      wx.showToast({
+        title: '请先登录',
+        icon: 'none'
+      });
+      return;
+    }
+
+    // 再次验证权限（防止在弹窗显示期间权限状态发生变化）
+    const post = this.data.posts.find(p => p.id === selectedPostId);
+    if (!post) {
+      console.log('动态不存在:', selectedPostId);
+      wx.showToast({
+        title: '动态不存在',
+        icon: 'none'
+      });
+      this.setData({
+        showDeleteOptions: false,
+        selectedPostId: ''
+      });
+      return;
+    }
+
+    if (post.openid !== currentOpenid) {
+      console.log('权限不足，无法删除他人动态:', {
+        postOpenid: post.openid,
+        currentOpenid: currentOpenid
+      });
+      wx.showToast({
+        title: '权限不足',
+        icon: 'none'
+      });
+      this.setData({
+        showDeleteOptions: false,
+        selectedPostId: ''
+      });
+      return;
+    }
+
+    try {
+      wx.showLoading({ title: '删除中...' });
+      
+      // 软删除：更新云数据库中的deleted字段
+      await this.softDeletePostFromCloud(selectedPostId);
+      
+      // 从本地数据中移除（不显示已删除的动态）
+      const posts = this.data.posts.filter(post => post.id !== selectedPostId);
+      this.setData({ posts });
+      this.savePosts();
+      
+      // 记录删除行为
+      recordDeleteAction(selectedPostId);
+      
+      // 关闭弹窗
+      this.setData({
+        showDeleteOptions: false,
+        selectedPostId: ''
+      });
+      
+      wx.hideLoading();
+      wx.showToast({
+        title: '删除成功',
+        icon: 'success'
+      });
+    } catch (error) {
+      console.error('删除失败:', error);
+      wx.hideLoading();
+      wx.showToast({
+        title: '删除失败，请重试',
+        icon: 'none'
+      });
+    }
+  },
+
+  // 取消删除
+  cancelDelete() {
+    this.setData({
+      showDeleteOptions: false,
+      selectedPostId: ''
+    });
+  },
+
+  // 从云数据库删除动态
+  async deletePostFromCloud(postId: string) {
+    return await deletePost(postId);
+  },
+
+  // 软删除动态（设置deleted为true）
+  async softDeletePostFromCloud(postId: string) {
+    const currentOpenid = wx.getStorageSync('openid');
+    
+    return new Promise((resolve, reject) => {
+      try {
+        const db = wx.cloud.database();
+        const posts = db.collection('posts');
+      
+      // 查找动态
+      posts.where({
+        id: postId
+      }).get({
+        success: (res) => {
+          if (res.data.length > 0) {
+            const post = res.data[0];
+            
+            // 在云数据库层面再次验证权限
+            if (post.openid !== currentOpenid) {
+              console.error('云数据库权限验证失败:', {
+                postOpenid: post.openid,
+                currentOpenid: currentOpenid
+              });
+              reject(new Error('权限不足，无法删除他人动态'));
+              return;
+            }
+            
+            // 检查是否已被删除
+            if (post.deleted) {
+              console.log('动态已被删除:', postId);
+              reject(new Error('动态已被删除'));
+              return;
+            }
+            
+            // 更新deleted字段
+            posts.doc(post._id).update({
+              data: {
+                deleted: true,
+                updateTime: new Date()
+              },
+              success: (updateRes) => {
+                console.log('软删除成功', updateRes);
+                resolve(updateRes);
+              },
+              fail: (error) => {
+                console.error('软删除失败', error);
+                reject(error);
+              }
+            });
+          } else {
+            reject(new Error('动态不存在'));
+          }
+        },
+        fail: (error) => {
+          console.error('查找动态失败', error);
+          reject(error);
+        }
+      });
+      } catch (error) {
+        console.error('云数据库操作失败:', error);
+        reject(error);
+      }
+    });
   },
 
   // 格式化时间
   formatTime(date: Date): string {
     const month = date.getMonth() + 1;
     const day = date.getDate();
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    return `${month}-${day} ${hours}:${minutes}`;
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
+    
+    return `${month}/${day} ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
   },
 
-  // 更新日期信息
-  updateDateInfo() {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth() + 1;
-    const day = now.getDate();
+  // 初始化天气
+  async initWeather() {
+    console.log('开始获取天气信息...');
     
-    const currentDate = {
-      year: year.toString(),
-      month: month.toString(),
-      day: day.toString()
-    };
+    // 使用上海坐标 (经度: 121.4737, 纬度: 31.2304) 用于显示
+    const shanghaiLocation = '121.4737,31.2304';
+    const shanghaiCityCode = '310100'; // 上海城市代码
+    
+    console.log('使用上海城市代码:', shanghaiCityCode);
+    console.log('显示坐标:', shanghaiLocation);
+    
+    // 解析坐标用于显示
+    const [longitude, latitude] = shanghaiLocation.split(',');
+    
+    // 保存坐标信息到数据中
+    this.setData({
+      'weatherInfo.coordinates': shanghaiLocation,
+      'weatherInfo.location': `${parseFloat(longitude).toFixed(4)}, ${parseFloat(latitude).toFixed(4)}`
+    });
+    
+    try {
+      // 首先尝试使用高德地图API直接获取天气
+      const weatherData = await this.getWeatherFromAmap(shanghaiCityCode);
+      if (weatherData) {
+        console.log('高德地图天气数据获取成功:', weatherData);
+        this.updateWeatherInfo(weatherData);
+        return;
+      }
+    } catch (error: any) {
+      console.error('高德地图API调用失败:', error);
+      
+      // 如果是域名白名单问题，尝试使用云函数
+      if (error.errMsg && error.errMsg.includes('url not in domain list')) {
+        console.log('检测到域名白名单问题，尝试使用云函数...');
+        try {
+          await this.tryCloudFunctionWeather(shanghaiCityCode);
+          return;
+        } catch (cloudError) {
+          console.error('云函数调用也失败:', cloudError);
+        }
+      }
+    }
+    
+    // 如果所有方法都失败，使用模拟数据
+    console.log('所有天气获取方法都失败，使用模拟数据');
+    this.useMockWeatherData();
+  },
 
-    // 模拟天气信息
-    const weatherTypes = [
-      { desc: '晴朗', icon: '☀️', temp: 20 + Math.floor(Math.random() * 10) },
-      { desc: '多云', icon: '⛅', temp: 15 + Math.floor(Math.random() * 8) },
-      { desc: '下雨', icon: '🌧️', temp: 10 + Math.floor(Math.random() * 6) }
-    ];
+  // 从高德地图API获取天气数据
+  async getWeatherFromAmap(cityCode: string): Promise<any> {
+    return new Promise((resolve, reject) => {
+      const apiKey = '39c8ba8c38a9cf6e1001ef801da7bd4e';
+      const url = `https://restapi.amap.com/v3/weather/weatherInfo?city=${cityCode}&key=${apiKey}`;
+      
+      console.log('请求高德地图天气API:', url);
+      
+      wx.request({
+        url: url,
+        method: 'GET',
+        success: (res) => {
+          console.log('高德地图API响应:', res);
+          console.log('响应状态码:', res.statusCode);
+          console.log('响应数据:', res.data);
+          
+          if (res.statusCode === 200 && res.data) {
+            const data = res.data as any;
+            console.log('API返回数据状态:', data.status);
+            console.log('API返回数据信息:', data.info);
+            
+            if (data.status === '1' && data.lives && data.lives.length > 0) {
+              const weatherInfo = data.lives[0];
+              console.log('解析天气数据:', weatherInfo);
+              console.log('天气数据字段:', Object.keys(weatherInfo));
+              resolve(weatherInfo);
+            } else {
+              console.error('API返回数据格式错误:', data);
+              console.error('数据状态:', data.status);
+              console.error('数据信息:', data.info);
+              reject(new Error(`API返回数据格式错误: ${data.info || '未知错误'}`));
+            }
+          } else {
+            console.error('API请求失败，状态码:', res.statusCode);
+            reject(new Error(`API请求失败，状态码: ${res.statusCode}`));
+          }
+        },
+        fail: (error: any) => {
+          console.error('网络请求失败:', error);
+          
+          // 检查是否是域名白名单问题
+          if (error.errMsg && error.errMsg.includes('url not in domain list')) {
+            console.warn('域名白名单问题，请配置域名白名单或开启"不校验合法域名"');
+            console.log('解决方案:');
+            console.log('1. 在微信开发者工具中勾选"不校验合法域名"');
+            console.log('2. 或在微信公众平台配置服务器域名: https://restapi.amap.com');
+          }
+          
+          reject(error);
+        }
+      });
+    });
+  },
+
+  // 尝试使用云函数获取天气（备用方案）
+  async tryCloudFunctionWeather(cityCode: string): Promise<void> {
+    if (!wx.cloud) {
+      throw new Error('云开发未初始化');
+    }
     
-    const randomWeather = weatherTypes[Math.floor(Math.random() * weatherTypes.length)];
+    console.log('尝试使用云函数获取天气...');
+    
+    const result = await wx.cloud.callFunction({
+      name: 'getWeather',
+      data: {
+        cityCode: cityCode
+      }
+    });
+    
+    console.log('云函数调用结果:', result);
+    
+    if (result.result && typeof result.result === 'object' && result.result.success) {
+      console.log('云函数天气数据获取成功:', result.result.data);
+      this.updateWeatherInfo(result.result.data);
+    } else {
+      throw new Error('云函数返回数据格式错误');
+    }
+  },
+
+  // 更新天气信息
+  updateWeatherInfo(data: any) {
+    try {
+      let weatherData = null;
+      
+      console.log('处理天气数据:', data);
+      console.log('数据类型:', typeof data);
+      console.log('数据键:', Object.keys(data || {}));
+      
+      // 处理不同的数据格式
+      if (data.lives && data.lives.length > 0) {
+        // 云函数返回的完整API响应格式
+        weatherData = data.lives[0];
+        console.log('使用云函数数据格式');
+      } else if (data.forecasts && data.forecasts.length > 0 && data.forecasts[0].casts && data.forecasts[0].casts.length > 0) {
+        // 预报数据格式
+        weatherData = data.forecasts[0].casts[0];
+        console.log('使用预报数据格式');
+      } else if (data.temperature && data.weather) {
+        // 直接API调用返回的单个天气对象格式
+        weatherData = data;
+        console.log('使用直接API数据格式');
+      } else {
+        console.log('未知数据格式:', data);
+        this.handleWeatherError('天气数据格式错误');
+        return;
+      }
+
+      if (weatherData) {
+        console.log('解析的天气数据:', weatherData);
+        
+        const weatherInfo = {
+          temp: weatherData.temperature || '--',
+          desc: weatherData.weather || '未知',
+          icon: this.getWeatherIcon(weatherData.weather || ''),
+          city: weatherData.city || '上海市',
+          winddirection: weatherData.winddirection || '',
+          windpower: weatherData.windpower || '',
+          humidity: weatherData.humidity || '',
+          loading: false,
+          error: false,
+          location: this.data.weatherInfo.location || '',
+          coordinates: this.data.weatherInfo.coordinates || ''
+        };
+
+        this.setData({ weatherInfo });
+        console.log('天气信息更新成功:', weatherInfo);
+      } else {
+        console.log('无法解析天气数据:', data);
+        this.handleWeatherError('天气数据格式错误');
+      }
+    } catch (error) {
+      console.error('处理天气数据时出错:', error);
+      this.handleWeatherError(error);
+    }
+  },
+
+  // 处理天气错误
+  handleWeatherError(error: any) {
+    console.error('天气获取失败:', error);
+    
     const weatherInfo = {
-      temp: randomWeather.temp.toString(),
-      desc: randomWeather.desc,
-      icon: randomWeather.icon
+      temp: '--',
+      desc: '暂无数据',
+      icon: '🌤️',
+      city: '上海市',
+      winddirection: '',
+      windpower: '',
+      humidity: '',
+      loading: false,
+      error: false, // 不显示错误状态
+      location: this.data.weatherInfo.location || '',
+      coordinates: this.data.weatherInfo.coordinates || ''
     };
 
-    this.setData({
-      currentDate,
-      weatherInfo
-    });
+    this.setData({ weatherInfo });
   },
 
-  // 更新倒计时
-  updateCountdown() {
-    const targetDate = new Date('2025-09-17');
-    const today = new Date();
-    const timeDiff = today.getTime() - targetDate.getTime();
-    const daysDiff = Math.floor(timeDiff / (1000 * 3600 * 24));
+  // 根据天气描述获取对应的图标
+  getWeatherIcon(weather: string): string {
+    if (!weather) return '🌤️';
     
-    this.setData({
-      countdownDays: Math.max(0, daysDiff)
-    });
+    const weatherLower = weather.toLowerCase();
+    
+    // 根据高德地图API返回的天气描述进行匹配
+    if (weatherLower.includes('晴')) {
+      return '☀️';
+    } else if (weatherLower.includes('多云')) {
+      return '⛅';
+    } else if (weatherLower.includes('阴')) {
+      return '☁️';
+    } else if (weatherLower.includes('小雨')) {
+      return '🌦️';
+    } else if (weatherLower.includes('中雨')) {
+      return '🌧️';
+    } else if (weatherLower.includes('大雨') || weatherLower.includes('暴雨')) {
+      return '⛈️';
+    } else if (weatherLower.includes('雪')) {
+      return '❄️';
+    } else if (weatherLower.includes('雾') || weatherLower.includes('霾')) {
+      return '🌫️';
+    } else if (weatherLower.includes('雷')) {
+      return '⛈️';
+    } else if (weatherLower.includes('风')) {
+      return '💨';
+    } else {
+      return '🌤️';
+    }
   },
 
-  // 更新农历日期
-  updateLunarDate() {
-    const now = new Date();
-    const lunarDate = this.getLunarDate(now);
-    this.setData({ lunarDate });
-  },
-
-  // 获取农历日期（简化版本，实际项目中建议使用专业的农历库）
-  getLunarDate(date: Date): string {
-    // 这里使用简化的农历转换，实际项目中建议使用专业的农历库如 solarlunar
-    const lunarMonths = ['正', '二', '三', '四', '五', '六', '七', '八', '九', '十', '冬', '腊'];
-    const lunarDays = ['初一', '初二', '初三', '初四', '初五', '初六', '初七', '初八', '初九', '初十',
-                      '十一', '十二', '十三', '十四', '十五', '十六', '十七', '十八', '十九', '二十',
-                      '廿一', '廿二', '廿三', '廿四', '廿五', '廿六', '廿七', '廿八', '廿九', '三十'];
+  // 使用模拟天气数据
+  useMockWeatherData() {
+    console.log('使用模拟天气数据');
     
-    // 简化的农历计算（仅作演示，实际应使用专业算法）
-    const year = date.getFullYear();
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
+    // 生成一些随机的天气数据，让显示更真实
+    const weathers = ['晴', '多云', '阴', '小雨', '中雨'];
+    const windDirections = ['东北风', '东风', '东南风', '南风', '西南风', '西风', '西北风', '北风'];
+    const temperatures = ['18', '20', '22', '24', '26', '28', '30'];
+    const humidities = ['60', '65', '70', '75', '80'];
     
-    // 这里使用一个简化的偏移计算，实际项目中应使用准确的农历算法
-    const lunarMonth = ((month - 1 + Math.floor(Math.random() * 2)) % 12) + 1;
-    const lunarDay = ((day - 1 + Math.floor(Math.random() * 2)) % 30) + 1;
+    const randomWeather = weathers[Math.floor(Math.random() * weathers.length)];
+    const randomTemp = temperatures[Math.floor(Math.random() * temperatures.length)];
+    const randomWind = windDirections[Math.floor(Math.random() * windDirections.length)];
+    const randomHumidity = humidities[Math.floor(Math.random() * humidities.length)];
     
-    return `${lunarMonths[lunarMonth - 1]}月${lunarDays[lunarDay - 1]}`;
-  },
-
-  // 通知统计更新
-  notifyStatsUpdate() {
-    const { posts } = this.data;
-    const stats = {
-      postsCount: posts.length,
-      imagesCount: posts.reduce((sum, post) => sum + (post.images?.length || 0), 0),
-      textCount: posts.reduce((sum, post) => sum + (post.text?.trim() ? 1 : 0), 0)
+    const mockWeatherData = {
+      lives: [{
+        city: '上海市',
+        weather: randomWeather,
+        temperature: randomTemp,
+        winddirection: randomWind,
+        windpower: Math.floor(Math.random() * 5 + 1).toString(),
+        humidity: randomHumidity
+      }]
     };
+    
+    console.log('模拟天气数据:', mockWeatherData);
+    this.updateWeatherInfo(mockWeatherData);
+  },
 
-    // 通过事件总线通知其他页面
-    getApp().globalData = getApp().globalData || {};
-    getApp().globalData.stats = stats;
+  // 手动刷新天气
+  refreshWeather() {
+    console.log('手动刷新上海天气');
+    this.setData({
+      'weatherInfo.loading': true,
+      'weatherInfo.error': false
+    });
+    this.initWeather();
+  },
+
+  // 调试天气API响应
+  async debugWeatherAPI() {
+    console.log('=== 开始调试天气API ===');
+    
+    const apiKey = '39c8ba8c38a9cf6e1001ef801da7bd4e';
+    const cityCode = '310100';
+    const url = `https://restapi.amap.com/v3/weather/weatherInfo?city=${cityCode}&key=${apiKey}`;
+    
+    console.log('请求URL:', url);
+    
+    try {
+      const result = await this.getWeatherFromAmap(cityCode);
+      console.log('API调用成功，返回数据:', result);
+      console.log('数据类型:', typeof result);
+      console.log('数据键:', Object.keys(result || {}));
+      
+      // 测试数据解析
+      console.log('测试数据解析...');
+      this.updateWeatherInfo(result);
+      
+    } catch (error) {
+      console.error('API调用失败:', error);
+    }
   }
 });

@@ -1,0 +1,13 @@
+/* TDesign 字体样式 - 本地版本 */
+@font-face {
+  font-family: 'TDesign';
+  src: url('data:font/woff2;base64,') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 使用系统字体作为备用 */
+.t-icon {
+  font-family: 'TDesign', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}

@@ -5,6 +5,20 @@ page {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
+/* TDesign 字体修复 */
+@font-face {
+  font-family: 'TDesign';
+  src: url('data:font/woff2;base64,') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 使用系统字体作为备用，避免外部字体加载失败 */
+.t-icon, .t-iconfont {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+}
+
 /* 容器样式 */
 .container {
   height: 100%;
@@ -25,9 +39,237 @@ page {
   margin-bottom: 16rpx;
 }
 
+/* TDesign 主题配置 - 将蓝色主题改为灰色 */
+/* 主要颜色变量 */
+page {
+  --td-brand-color: #666666;           /* 主品牌色：灰色 */
+  --td-brand-color-1: #f5f5f5;         /* 浅灰色 */
+  --td-brand-color-2: #e8e8e8;         /* 中浅灰色 */
+  --td-brand-color-3: #d9d9d9;         /* 中灰色 */
+  --td-brand-color-4: #bfbfbf;         /* 中深灰色 */
+  --td-brand-color-5: #999999;         /* 深灰色 */
+  --td-brand-color-6: #666666;         /* 更深灰色 */
+  --td-brand-color-7: #4d4d4d;         /* 最深灰色 */
+  --td-brand-color-8: #333333;         /* 极深灰色 */
+  --td-brand-color-9: #1a1a1a;         /* 接近黑色 */
+  --td-brand-color-10: #000000;        /* 黑色 */
+}
+
+/* 覆盖TDesign组件的主题色 - 使用更强的选择器 */
+.t-button--theme-primary,
+.t-button--theme-primary.t-button--size-medium,
+.t-button--theme-primary.t-button--size-large,
+.t-button--theme-primary.t-button--size-small {
+  background-color: var(--td-brand-color) !important;
+  border-color: var(--td-brand-color) !important;
+}
+
+.t-button--theme-primary:hover,
+.t-button--theme-primary:focus,
+.t-button--theme-primary.t-button--size-medium:hover,
+.t-button--theme-primary.t-button--size-medium:focus,
+.t-button--theme-primary.t-button--size-large:hover,
+.t-button--theme-primary.t-button--size-large:focus,
+.t-button--theme-primary.t-button--size-small:hover,
+.t-button--theme-primary.t-button--size-small:focus {
+  background-color: #F9C0C4 !important;
+  border-color: #F9C0C4 !important;
+}
+
+.t-button--theme-primary:active,
+.t-button--theme-primary.t-button--size-medium:active,
+.t-button--theme-primary.t-button--size-large:active,
+.t-button--theme-primary.t-button--size-small:active {
+  background-color: #F9C0C4 !important;
+  border-color: #F9C0C4 !important;
+  transition: none !important;
+}
+
+/* Outline变体按钮 - 使用更强的选择器 */
+.t-button--variant-outline,
+.t-button--variant-outline.t-button--size-medium,
+.t-button--variant-outline.t-button--size-large,
+.t-button--variant-outline.t-button--size-small {
+  background-color: transparent !important;
+  border-color: var(--td-brand-color) !important;
+  color: var(--td-brand-color) !important;
+}
+
+.t-button--variant-outline:hover,
+.t-button--variant-outline:focus,
+.t-button--variant-outline.t-button--size-medium:hover,
+.t-button--variant-outline.t-button--size-medium:focus,
+.t-button--variant-outline.t-button--size-large:hover,
+.t-button--variant-outline.t-button--size-large:focus,
+.t-button--variant-outline.t-button--size-small:hover,
+.t-button--variant-outline.t-button--size-small:focus {
+  background-color: #F9C0C4 !important;
+  border-color: #F9C0C4 !important;
+  color: #ffffff !important;
+}
+
+.t-button--variant-outline:active,
+.t-button--variant-outline.t-button--size-medium:active,
+.t-button--variant-outline.t-button--size-large:active,
+.t-button--variant-outline.t-button--size-small:active {
+  background-color: #F9C0C4 !important;
+  border-color: #F9C0C4 !important;
+  color: #ffffff !important;
+  transition: none !important;
+}
+
+/* 默认按钮 */
+.t-button {
+  background-color: var(--td-brand-color) !important;
+  border-color: var(--td-brand-color) !important;
+  color: #ffffff !important;
+}
+
+.t-button:hover,
+.t-button:focus {
+  background-color: #F9C0C4 !important;
+  border-color: #F9C0C4 !important;
+}
+
+.t-button:active {
+  background-color: #F9C0C4 !important;
+  border-color: #F9C0C4 !important;
+  transition: none !important;
+}
+
+.t-cell--clickable:active {
+  background-color: var(--td-brand-color-1) !important;
+}
+
+.t-fab--theme-primary {
+  background-color: var(--td-brand-color) !important;
+}
+
+.t-fab--theme-primary:hover,
+.t-fab--theme-primary:focus {
+  background-color: #F9C0C4 !important;
+}
+
+.t-fab--theme-primary:active {
+  background-color: #F9C0C4 !important;
+  transition: none !important;
+}
+
+.t-popup__content {
+  border-top: 1rpx solid var(--td-brand-color-2) !important;
+}
+
+.t-dialog__header {
+  border-bottom: 1rpx solid var(--td-brand-color-2) !important;
+}
+
+.t-dialog__footer {
+  border-top: 1rpx solid var(--td-brand-color-2) !important;
+}
+
+.t-dialog__btn--primary {
+  background-color: var(--td-brand-color) !important;
+  border-color: var(--td-brand-color) !important;
+}
+
+.t-dialog__btn--primary:hover,
+.t-dialog__btn--primary:focus {
+  background-color: #F9C0C4 !important;
+  border-color: #F9C0C4 !important;
+}
+
+.t-dialog__btn--primary:active {
+  background-color: #F9C0C4 !important;
+  border-color: #F9C0C4 !important;
+  transition: none !important;
+}
+
+.t-toast--theme-primary {
+  background-color: var(--td-brand-color) !important;
+}
+
+.t-upload__trigger {
+  border-color: var(--td-brand-color-3) !important;
+}
+
+.t-upload__trigger:active {
+  border-color: var(--td-brand-color) !important;
+}
+
+.t-textarea__inner {
+  border-color: var(--td-brand-color-3) !important;
+}
+
+.t-textarea__inner:focus {
+  border-color: var(--td-brand-color) !important;
+}
+
+.t-grid-item__content {
+  color: var(--td-brand-color-8) !important;
+}
+
+.t-grid-item__content:active {
+  background-color: var(--td-brand-color-1) !important;
+}
+
+.t-divider {
+  border-color: var(--td-brand-color-2) !important;
+}
+
+.t-avatar {
+  border-color: var(--td-brand-color-2) !important;
+}
+
+.t-image {
+  border-color: var(--td-brand-color-2) !important;
+}
+
+/* 强制覆盖所有TDesign按钮的蓝色主题 - 确保点击时立即显示粉色 */
+.t-button[class*="theme-primary"]:active,
+.t-button[class*="theme-primary"]:hover,
+.t-button[class*="theme-primary"]:focus,
+.t-button[class*="theme-primary"]:touchstart,
+.t-button[class*="variant-outline"]:active,
+.t-button[class*="variant-outline"]:hover,
+.t-button[class*="variant-outline"]:focus,
+.t-button[class*="variant-outline"]:touchstart,
+.t-fab[class*="theme-primary"]:active,
+.t-fab[class*="theme-primary"]:hover,
+.t-fab[class*="theme-primary"]:focus,
+.t-fab[class*="theme-primary"]:touchstart {
+  background-color: #F9C0C4 !important;
+  border-color: #F9C0C4 !important;
+}
+
+.t-button[class*="variant-outline"]:active,
+.t-button[class*="variant-outline"]:hover,
+.t-button[class*="variant-outline"]:focus,
+.t-button[class*="variant-outline"]:touchstart {
+  color: #ffffff !important;
+}
+
+/* 微信小程序按钮点击立即响应 */
+.t-button[class*="theme-primary"]:active {
+  background-color: #F9C0C4 !important;
+  border-color: #F9C0C4 !important;
+  transition: none !important;
+}
+
+.t-button[class*="variant-outline"]:active {
+  background-color: #F9C0C4 !important;
+  border-color: #F9C0C4 !important;
+  color: #ffffff !important;
+  transition: none !important;
+}
+
+.t-fab[class*="theme-primary"]:active {
+  background-color: #F9C0C4 !important;
+  transition: none !important;
+}
+
 /* 通用按钮样式 */
 .btn-primary {
-  background-color: #0052d9;
+  background-color: #F9C0C4;
   color: #ffffff;
   border-radius: 8rpx;
   padding: 16rpx 32rpx;
@@ -37,8 +279,8 @@ page {
 
 .btn-secondary {
   background-color: #ffffff;
-  color: #0052d9;
-  border: 1rpx solid #0052d9;
+  color: #F9C0C4;
+  border: 1rpx solid #F9C0C4;
   border-radius: 8rpx;
   padding: 16rpx 32rpx;
   font-size: 28rpx;

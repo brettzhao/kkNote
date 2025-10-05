@@ -2,8 +2,9 @@
 <view class="moment-container">
   <!-- 顶部Banner -->
   <view class="banner">
-    <t-image 
-      src="https://images.unsplash.com/photo-1506905925346-14bda5d4c4c0?q=80&w=800&auto=format&fit=crop"
+    <!-- Banner背景图片 -->
+    <image 
+      src="./banner.jpg?v=2" 
       class="banner-image"
       mode="aspectFill"
     />
@@ -14,68 +15,136 @@
         <view class="lunar-date">{{lunarDate}}</view>
       </view>
       
-      <!-- 右上角：天气图标 -->
-      <view class="weather-icon">
-        <text class="weather-emoji">{{weatherInfo.icon}}</text>
-      </view>
-      
       <!-- 左下角：天气信息 -->
-      <view class="weather-info">
+      <view class="weather-info-left" bindtap="refreshWeather">
         <view class="weather-temp">{{weatherInfo.temp}}°C</view>
         <view class="weather-desc">{{weatherInfo.desc}}</view>
       </view>
       
+      <!-- 右上角：天气图标 -->
+      <view class="weather-icon-top" bindtap="refreshWeather">
+        <view class="weather-icon">{{weatherInfo.icon}}</view>
+      </view>
+      
       <!-- 右下角：倒计时 -->
       <view class="countdown">
-        <text class="countdown-text">{{countdownDays}} days since 9/17/2025</text>
+        <text class="countdown-text" wx:if="{{countdownDays > 0}}">{{countdownDays}} days to 9/17/2025</text>
+        <text class="countdown-text" wx:elif="{{countdownDays === 0}}">Today is 9/17/2025!</text>
+        <text class="countdown-text" wx:else>{{-countdownDays}} days since 9/17/2025</text>
       </view>
     </view>
   </view>
 
   <!-- 动态列表 -->
-  <view class="feed-list">
-    <view 
-      wx:for="{{posts}}" 
-      wx:key="id" 
-      class="moment-item {{index % 2 === 0 ? 'avatar-left' : 'avatar-right'}}"
-    >
-      <!-- 头像 -->
-      <t-avatar 
-        size="40rpx" 
-        image="{{item.avatar}}" 
-        class="moment-avatar"
-      />
+  <scroll-view 
+    class="feed-scroll" 
+    scroll-y="true"
+    refresher-enabled="true"
+    refresher-triggered="{{refreshing}}"
+    bindrefresherrefresh="onPullDownRefresh"
+    bindscrolltolower="onReachBottom"
+    lower-threshold="100"
+  >
+    <view class="feed-list">
+        <view 
+          wx:for="{{posts}}" 
+          wx:key="id" 
+          class="moment-item {{item.openid === 'okU9A1yvJI1WS_NfmEo0wMY9Lyl8' ? 'bubble-left' : 'bubble-right'}}"
+          bindlongpress="onPostLongPress"
+          data-id="{{item.id}}"
+        >
+      <!-- 左侧头像 -->
+      <view wx:if="{{item.openid === 'okU9A1yvJI1WS_NfmEo0wMY9Lyl8'}}" class="avatar-container left">
+        <t-avatar 
+          size="80rpx" 
+          image="{{item.avatar}}" 
+          class="moment-avatar"
+        />
+      </view>
       
-      <!-- 内容区域 -->
-      <view class="moment-content">
+        <!-- 气泡内容区域 -->
+        <view class="bubble-content {{item.openid === 'okU9A1yvJI1WS_NfmEo0wMY9Lyl8' ? 'bubble-left-content' : 'bubble-right-content'}}">
+          <!-- 气泡箭头 -->
+          <view class="bubble-arrow {{item.openid === 'okU9A1yvJI1WS_NfmEo0wMY9Lyl8' ? 'bubble-arrow-left' : 'bubble-arrow-right'}}"></view>
+        
         <!-- 文字内容 -->
         <view wx:if="{{item.text}}" class="moment-text">{{item.text}}</view>
         
-        <!-- 图片九宫格 -->
+        <!-- 图片展示 -->
         <view wx:if="{{item.images && item.images.length > 0}}" class="moment-images">
-          <t-grid column="3" gap="8rpx">
-            <t-grid-item wx:for="{{item.images}}" wx:for-item="image" wx:key="*this">
-              <t-image 
+          <!-- 单张图片 - 大图展示 -->
+          <view wx:if="{{item.images.length === 1}}" class="single-image-container">
+            <image 
+              src="{{item.images[0]}}" 
+              class="single-image"
+              mode="aspectFill"
+              data-url="{{item.images[0]}}"
+              data-postid="{{item.id}}"
+              bind:tap="onImageTap"
+            />
+          </view>
+          
+          <!-- 多张图片 - 九宫格展示 -->
+          <view wx:else class="grid-images-container">
+            <view 
+              wx:for="{{item.images}}" 
+              wx:for-item="image" 
+              wx:key="*this"
+              class="grid-image-item"
+            >
+              <image 
                 src="{{image}}" 
-                class="moment-image"
+                class="grid-image"
                 mode="aspectFill"
+                data-url="{{image}}"
+                data-postid="{{item.id}}"
+                bind:tap="onImageTap"
               />
-            </t-grid-item>
-          </t-grid>
+            </view>
+          </view>
         </view>
         
         <!-- 时间 -->
         <view class="moment-time">{{item.time}}</view>
       </view>
+      
+      <!-- 右侧头像 -->
+      <view wx:if="{{item.openid !== 'okU9A1yvJI1WS_NfmEo0wMY9Lyl8'}}" class="avatar-container right">
+        <t-avatar 
+          size="80rpx" 
+          image="{{item.avatar}}" 
+          class="moment-avatar"
+        />
+      </view>
+    </view>
+    
+    <!-- 加载更多状态 -->
+    <view class="load-more-container" wx:if="{{loading}}">
+      <view class="loading-spinner">
+        <view class="spinner"></view>
+      </view>
+      <text class="loading-text">加载中...</text>
+    </view>
+    
+    <!-- 到底提示 -->
+    <view class="end-tip" wx:if="{{!hasMore && posts.length > 0}}">
+      <text class="end-tip-text">没有更多内容了</text>
+    </view>
+    
+    <!-- 空状态 -->
+    <view class="empty-state" wx:if="{{posts.length === 0 && !loading}}">
+      <text class="empty-text">暂无动态，快来发布第一条吧~</text>
     </view>
   </view>
+  </scroll-view>
 
   <!-- 发布按钮 -->
-  <t-fab 
-    icon="add" 
-    bind:click="showPublishPopup"
-    class="publish-fab"
-  />
+  <view 
+    class="publish-fab-native"
+    bind:tap="showPublishPopup"
+  >
+    <text class="fab-icon">+</text>
+  </view>
 
   <!-- 发布弹窗 -->
   <t-popup 
@@ -87,11 +156,7 @@
     <view class="publish-content">
       <view class="publish-header">
         <text class="publish-title">发布新动态</text>
-        <t-button 
-          variant="text" 
-          size="small" 
-          bind:click="hidePublishPopup"
-        >取消</t-button>
+        <view class="publish-close" bind:tap="hidePublishPopup">×</view>
       </view>
       
       <view class="publish-form">
@@ -104,33 +169,118 @@
           class="publish-textarea"
         />
         
-        <!-- 图片上传 -->
-        <t-upload 
-          files="{{publishImages}}"
-          bind:change="onImageChange"
-          max="9"
-          gridConfig="{{gridConfig}}"
-          class="publish-upload"
-        />
+        <!-- 图片上传区域 -->
+        <view class="image-upload-section">
+          <view class="upload-tip">选择图片（最多9张）</view>
+          <view class="image-grid">
+            <!-- 已选择的图片 -->
+            <view 
+              wx:for="{{publishImages}}" 
+              wx:key="index" 
+              class="image-item"
+            >
+              <image 
+                src="{{item.url || item}}" 
+                class="uploaded-image"
+                mode="aspectFill"
+              />
+              <view 
+                class="remove-btn" 
+                bindtap="removeImage" 
+                data-index="{{index}}"
+              >×</view>
+            </view>
+            
+            <!-- 添加按钮 -->
+            <view 
+              wx:if="{{publishImages.length < 9}}" 
+              class="add-image-btn" 
+              bindtap="chooseImage"
+            >
+              <text class="add-icon">+</text>
+            </view>
+          </view>
+        </view>
         
         <!-- 操作按钮 -->
         <view class="publish-actions">
-          <t-button 
-            variant="outline" 
-            size="medium" 
-            bind:click="resetPublish"
-            class="publish-reset"
-          >清空</t-button>
-          <t-button 
-            theme="primary" 
-            size="medium" 
-            bind:click="submitPublish"
-            class="publish-submit"
-          >发布</t-button>
+          <view 
+            class="publish-reset-native"
+            bind:tap="resetPublish"
+          >
+            <text class="button-text">清空</text>
+          </view>
+          <view 
+            class="publish-submit-native {{publishing ? 'publishing' : ''}}"
+            bind:tap="submitPublish"
+          >
+            <text class="button-text">{{publishing ? '发布中...' : '发布'}}</text>
+          </view>
+          
+          <!-- 时间设置 - 发布按钮上方右下角 -->
+          <view class="time-setting-corner-small">
+            <picker
+              mode="multiSelector"
+              range="{{timePickerRange}}"
+              value="{{timePickerValue}}"
+              bind:change="onTimePickerChange"
+              bind:columnchange="onTimePickerColumnChange"
+            >
+              <view class="time-display-corner-small">
+                <text class="time-value-corner-small">{{formattedPublishTime}}</text>
+              </view>
+            </picker>
+          </view>
         </view>
       </view>
     </view>
   </t-popup>
+
+  <!-- 删除选项弹窗 -->
+  <t-popup 
+    visible="{{showDeleteOptions}}" 
+    bind:visible-change="onDeleteOptionsVisibleChange"
+    placement="bottom"
+    class="delete-options-popup"
+  >
+    <view class="delete-options-content">
+      <view class="delete-options-title">操作选项</view>
+      <view class="delete-options-actions">
+        <view 
+          class="delete-option-item delete-option"
+          bindtap="confirmDelete"
+        >
+          <text class="delete-option-text">删除动态</text>
+        </view>
+        <view 
+          class="delete-option-item cancel-option"
+          bindtap="cancelDelete"
+        >
+          <text class="cancel-option-text">取消</text>
+        </view>
+      </view>
+    </view>
+  </t-popup>
+
+  <!-- 图片预览弹窗 -->
+  <view 
+    wx:if="{{showImagePreview}}" 
+    class="image-preview-overlay"
+    bindtap="onImagePreviewClose"
+  >
+    <view class="image-preview-content" catchtap="">
+      <image 
+        src="{{previewImageUrl}}" 
+        class="preview-image"
+        mode="aspectFit"
+        style="transform: scale({{imageScale}}) translate({{imageTranslateX}}px, {{imageTranslateY}}px);"
+        bindtouchstart="onImageTouchStart"
+        bindtouchmove="onImageTouchMove"
+        bindtouchend="onImageTouchEnd"
+        bindlongpress="onImageLongPress"
+      />
+    </view>
+  </view>
 
   <!-- Toast提示 -->
   <t-toast id="t-toast" />
