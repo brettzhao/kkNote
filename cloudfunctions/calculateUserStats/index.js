@@ -48,6 +48,26 @@ exports.main = async (event, context) => {
     
     console.log('过滤后数据数量:', postsData.length);
     
+    // 调试特定用户的数据
+    if (userId === 'okU9A1yvJI1WS_NfmEo0wMY9Lyl8') {
+      console.log('=== 调试用户 okU9A1yvJI1WS_NfmEo0wMY9Lyl8 的数据 ===');
+      console.log('总数据量:', allPostsData.length);
+      console.log('过滤后数据量:', postsData.length);
+      
+      // 检查每条数据的text字段
+      postsData.forEach((post, index) => {
+        console.log(`第${index + 1}条数据:`, {
+          id: post._id,
+          text: post.text,
+          textType: typeof post.text,
+          textLength: post.text ? post.text.length : 0,
+          textTrimmed: post.text ? post.text.trim() : '',
+          textTrimmedLength: post.text ? post.text.trim().length : 0,
+          hasText: !!(post.text && typeof post.text === 'string' && post.text.trim())
+        });
+      });
+    }
+    
     let postsCount = 0;
     let imagesCount = 0;
     let textCount = 0;
@@ -55,7 +75,7 @@ exports.main = async (event, context) => {
     const activeDays = new Set(); // 使用Set来记录活跃日期
     
     // 计算统计数据
-    postsData.forEach((post) => {
+    postsData.forEach((post, index) => {
       // 发布条数
       postsCount++;
       
@@ -69,6 +89,16 @@ exports.main = async (event, context) => {
         textCount++; // 有文字内容的动态数量
         const words = post.text.trim().length;
         totalWords += words; // 累加所有文字的字符数
+        
+        // 调试特定用户的文字统计
+        if (userId === 'okU9A1yvJI1WS_NfmEo0wMY9Lyl8') {
+          console.log(`第${index + 1}条文字统计:`, {
+            text: post.text,
+            trimmedLength: words,
+            currentTotalWords: totalWords,
+            currentTextCount: textCount
+          });
+        }
       }
       
       // 活跃日期统计
@@ -92,6 +122,17 @@ exports.main = async (event, context) => {
     };
     
     console.log('计算完成的统计数据:', stats);
+    
+    // 调试特定用户的最终结果
+    if (userId === 'okU9A1yvJI1WS_NfmEo0wMY9Lyl8') {
+      console.log('=== 用户 okU9A1yvJI1WS_NfmEo0wMY9Lyl8 最终统计结果 ===');
+      console.log('postsCount:', postsCount);
+      console.log('imagesCount:', imagesCount);
+      console.log('textCount:', textCount);
+      console.log('totalWords:', totalWords);
+      console.log('avgWords:', avgWords);
+      console.log('activeDays:', activeDays.size);
+    }
     
     return {
       success: true,

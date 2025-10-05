@@ -165,10 +165,11 @@
           class="publish-textarea"
           adjust-position="{{true}}"
           hold-keyboard="{{false}}"
-          cursor-spacing="{{20}}"
+          cursor-spacing="{{100}}"
           auto-height="{{true}}"
           show-confirm-bar="{{false}}"
           disable-default-padding="{{false}}"
+          fixed="{{true}}"
         />
         
         <!-- 图片上传区域 - 只在有图片或需要添加时显示 -->

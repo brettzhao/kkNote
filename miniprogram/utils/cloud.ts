@@ -465,7 +465,7 @@ export const calculateUserStats = (userId: string): Promise<any> => {
             const activeDays = new Set();
             
             // 计算统计数据
-            postsData.forEach((post: any) => {
+            postsData.forEach((post: any, index: number) => {
               postsCount++;
               
               if (post.images && Array.isArray(post.images)) {
@@ -476,6 +476,16 @@ export const calculateUserStats = (userId: string): Promise<any> => {
                 textCount++; // 有文字内容的动态数量
                 const words = post.text.trim().length;
                 totalWords += words; // 累加所有文字的字符数
+                
+                // 调试特定用户的文字统计
+                if (userId === 'okU9A1yvJI1WS_NfmEo0wMY9Lyl8') {
+                  console.log(`前端第${index + 1}条文字统计:`, {
+                    text: post.text,
+                    trimmedLength: words,
+                    currentTotalWords: totalWords,
+                    currentTextCount: textCount
+                  });
+                }
               }
               
               if (post.momentTime) {
@@ -497,6 +507,18 @@ export const calculateUserStats = (userId: string): Promise<any> => {
             };
             
             console.log('本地用户统计数据计算完成:', stats);
+            
+            // 调试特定用户的最终结果
+            if (userId === 'okU9A1yvJI1WS_NfmEo0wMY9Lyl8') {
+              console.log('=== 前端用户 okU9A1yvJI1WS_NfmEo0wMY9Lyl8 最终统计结果 ===');
+              console.log('postsCount:', postsCount);
+              console.log('imagesCount:', imagesCount);
+              console.log('textCount:', textCount);
+              console.log('totalWords:', totalWords);
+              console.log('avgWords:', avgWords);
+              console.log('activeDays:', activeDays.size);
+            }
+            
             resolve(stats);
           },
           fail: (localError) => {

@@ -1415,6 +1415,34 @@ Page({
     if (keyboardHeight > 0) {
       // 可以在这里添加额外的布局调整逻辑
       console.log('调整布局以适应键盘，高度:', keyboardHeight);
+      
+      // 确保textarea可见
+      const query = wx.createSelectorQuery();
+      query.select('.publish-textarea').boundingClientRect();
+      query.exec((res) => {
+        if (res[0]) {
+          const textareaRect = res[0];
+          const systemInfo = wx.getSystemInfoSync();
+          const windowHeight = systemInfo.windowHeight;
+          
+          // 如果textarea被键盘遮挡，滚动到可见位置
+          if (textareaRect.bottom > windowHeight - keyboardHeight) {
+            query.select('.publish-form').scrollOffset();
+            query.exec((scrollRes) => {
+              if (scrollRes[0]) {
+                const scrollTop = scrollRes[0].scrollTop;
+                const targetScrollTop = scrollTop + (textareaRect.bottom - (windowHeight - keyboardHeight)) + 50;
+                
+                // 滚动到textarea可见位置
+                wx.pageScrollTo({
+                  scrollTop: targetScrollTop,
+                  duration: 300
+                });
+              }
+            });
+          }
+        }
+      });
     }
   },
 

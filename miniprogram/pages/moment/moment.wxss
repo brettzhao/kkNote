@@ -599,6 +599,9 @@
   position: relative;
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
+  /* 防止弹窗内容抖动 */
+  will-change: transform;
+  backface-visibility: hidden;
   /* 确保内容能够完整显示 */
   display: flex;
   flex-direction: column;
@@ -639,29 +642,40 @@
   overflow-y: auto;
   min-height: 0;
   /* 确保表单内容不会挤压按钮区域 */
-  max-height: calc(90vh - 250rpx);
+  max-height: calc(90vh - 200rpx); /* 减少预留空间，给textarea更多空间 */
+  /* 防止表单区域抖动 */
+  position: relative;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 .publish-textarea {
   min-height: 80rpx;
-  max-height: 200rpx;
+  max-height: 300rpx; /* 增加最大高度，给换行更多空间 */
   /* 防止键盘弹起时的抖动 */
   position: relative;
-  z-index: 1;
+  z-index: 1000; /* 提高z-index层级，防止抖动 */
   /* 确保textarea在键盘弹起时保持稳定 */
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
   /* 支持换行显示 */
   white-space: pre-wrap;
   word-wrap: break-word;
-  line-height: 1.5;
+  line-height: 1.6; /* 增加行高，让文字更清晰 */
   /* 确保文本区域有合适的内边距 */
-  padding: 16rpx;
+  padding: 20rpx; /* 增加内边距 */
   border: 2rpx solid #e5e7eb;
   border-radius: 12rpx;
   background-color: #ffffff;
   font-size: 28rpx;
   color: #1f2328;
+  /* 防止textarea抖动 */
+  will-change: transform;
+  backface-visibility: hidden;
+  /* 确保textarea有足够的底部空间 */
+  margin-bottom: 20rpx;
 }
 
 /* 图片上传区域 */
