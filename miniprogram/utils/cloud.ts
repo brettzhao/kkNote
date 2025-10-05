@@ -267,25 +267,63 @@ export const verifyAvatarUrlInCloud = async (openid: string, expectedAvatarUrl: 
   }
 };
 
-// 获取动态列表
+// 获取动态列表 - 使用云函数获取所有数据
 export const getPosts = (): Promise<any[]> => {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     try {
-      const db = getDb();
-      const posts = db.collection('posts');
-    
-      posts.orderBy('momentTime', 'desc').get({
-        success: (res) => {
-          console.log('获取动态列表成功', res);
-          resolve(res.data);
-        },
-        fail: (error) => {
-          console.error('获取动态列表失败', error);
-          reject(error);
-        }
+      console.log('开始获取动态列表');
+      
+      // 检查云开发是否可用
+      if (!wx.cloud) {
+        console.error('云开发未初始化');
+        reject(new Error('云开发未初始化'));
+        return;
+      }
+      
+      // 调用云函数获取所有posts数据
+      const result = await wx.cloud.callFunction({
+        name: 'getAllPosts',
+        data: {}
       });
+      
+      console.log('云函数调用结果:', result);
+      
+      if (result.result && typeof result.result === 'object' && result.result.success) {
+        console.log('获取动态列表成功，数据量:', result.result.data.length);
+        resolve(result.result.data);
+      } else {
+        console.error('云函数返回失败:', result.result);
+        const errorMsg = (result.result && typeof result.result === 'object' && result.result.error) 
+          ? result.result.error 
+          : '获取动态列表失败';
+        reject(new Error(errorMsg));
+      }
+      
     } catch (error) {
-      reject(error);
+      console.error('获取动态列表时发生异常:', error);
+      
+      // 如果云函数调用失败，回退到本地查询（但只能获取20条数据）
+      console.log('云函数调用失败，回退到本地查询（限制20条数据）');
+      try {
+        const db = getDb();
+        const posts = db.collection('posts');
+        
+        posts.orderBy('momentTime', 'desc').get({
+          success: (res) => {
+            console.log('本地获取动态列表成功:', res);
+            // 过滤掉已删除的动态
+            const validPosts = res.data.filter((post: any) => !post.deleted);
+            resolve(validPosts);
+          },
+          fail: (localError) => {
+            console.error('本地查询也失败:', localError);
+            reject(localError);
+          }
+        });
+      } catch (localError) {
+        console.error('本地查询也失败:', localError);
+        reject(localError);
+      }
     }
   });
 };

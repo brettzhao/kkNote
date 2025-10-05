@@ -1,5 +1,9 @@
 <!--moment页面-->
-<view class="moment-container">
+<view 
+  class="moment-container"
+  bind:keyboardheightchange="onKeyboardShow"
+  bind:keyboardhide="onKeyboardHide"
+>
   <!-- 顶部Banner -->
   <view class="banner">
     <!-- Banner背景图片 -->
@@ -167,6 +171,9 @@
           placeholder="这一刻的想法..."
           maxlength="500"
           class="publish-textarea"
+          adjust-position="{{true}}"
+          hold-keyboard="{{false}}"
+          cursor-spacing="{{20}}"
         />
         
         <!-- 图片上传区域 -->

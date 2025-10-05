@@ -66,7 +66,12 @@ Page({
       coordinates: '' // 添加坐标信息
     },
     countdownDays: 0,
-    lunarDate: ''
+    lunarDate: '',
+    // 键盘状态相关
+    keyboardHeight: 0,
+    isKeyboardShow: false,
+    // 所有posts数据缓存
+    allPostsData: [] as Post[]
   },
 
   onLoad() {
@@ -247,27 +252,40 @@ Page({
     }
   },
 
-  // 从云数据库加载动态数据（分页）
+  // 从云数据库加载动态数据（优化分页策略）
   async loadPostsFromCloud(refresh = false): Promise<Post[]> {
+    // 如果已经获取过所有数据且不是刷新，直接使用本地数据分页
+    if (!refresh && this.data.allPostsData && this.data.allPostsData.length > 0) {
+      console.log('使用本地缓存数据进行分页');
+      const startIndex = this.data.currentPage * this.data.pageSize;
+      const endIndex = startIndex + this.data.pageSize;
+      return this.data.allPostsData.slice(startIndex, endIndex);
+    }
+    
+    // 获取所有数据
+    console.log('从云函数获取所有posts数据');
     const allPosts = await getPosts();
-    // 过滤掉已删除的动态
-    const validPosts = allPosts.filter(post => !post.deleted);
     
     // 按momentTime倒序排列（最新的在前）
-    validPosts.sort((a, b) => {
+    allPosts.sort((a, b) => {
       const timeA = new Date(a.momentTime).getTime();
       const timeB = new Date(b.momentTime).getTime();
       return timeB - timeA;
     });
     
+    // 缓存所有数据
+    this.setData({
+      allPostsData: allPosts
+    });
+    
     if (refresh) {
       // 刷新时返回第一页数据
-      return validPosts.slice(0, this.data.pageSize);
+      return allPosts.slice(0, this.data.pageSize);
     } else {
       // 加载更多时返回下一页数据
       const startIndex = this.data.currentPage * this.data.pageSize;
       const endIndex = startIndex + this.data.pageSize;
-      return validPosts.slice(startIndex, endIndex);
+      return allPosts.slice(startIndex, endIndex);
     }
   },
 
@@ -734,7 +752,19 @@ Page({
         const timeB = new Date(b.momentTime).getTime();
         return timeB - timeA;
       });
-      this.setData({ posts: allPosts });
+      
+      // 同时更新缓存的所有数据
+      const updatedAllPostsData = [newPost, ...(this.data.allPostsData || [])];
+      updatedAllPostsData.sort((a, b) => {
+        const timeA = new Date(a.momentTime).getTime();
+        const timeB = new Date(b.momentTime).getTime();
+        return timeB - timeA;
+      });
+      
+      this.setData({ 
+        posts: allPosts,
+        allPostsData: updatedAllPostsData
+      });
       this.savePosts();
 
       // 重置发布内容
@@ -909,7 +939,12 @@ Page({
       
       // 从本地数据中移除（不显示已删除的动态）
       const posts = this.data.posts.filter(post => post.id !== selectedPostId);
-      this.setData({ posts });
+      const allPostsData = (this.data.allPostsData || []).filter(post => post.id !== selectedPostId);
+      
+      this.setData({ 
+        posts,
+        allPostsData
+      });
       this.savePosts();
       
       // 记录删除行为
@@ -1324,5 +1359,48 @@ Page({
     } catch (error) {
       console.error('API调用失败:', error);
     }
+  },
+
+  // 键盘弹起事件
+  onKeyboardShow(e: any) {
+    console.log('键盘弹起:', e);
+    this.setData({
+      keyboardHeight: e.detail.height,
+      isKeyboardShow: true
+    });
+    
+    // 延迟调整布局，防止抖动
+    setTimeout(() => {
+      this.adjustLayoutForKeyboard();
+    }, 100);
+  },
+
+  // 键盘收起事件
+  onKeyboardHide(e: any) {
+    console.log('键盘收起:', e);
+    this.setData({
+      keyboardHeight: 0,
+      isKeyboardShow: false
+    });
+    
+    // 恢复布局
+    setTimeout(() => {
+      this.restoreLayout();
+    }, 100);
+  },
+
+  // 调整布局以适应键盘
+  adjustLayoutForKeyboard() {
+    const { keyboardHeight } = this.data;
+    if (keyboardHeight > 0) {
+      // 可以在这里添加额外的布局调整逻辑
+      console.log('调整布局以适应键盘，高度:', keyboardHeight);
+    }
+  },
+
+  // 恢复布局
+  restoreLayout() {
+    console.log('恢复布局');
+    // 可以在这里添加恢复布局的逻辑
   }
 });

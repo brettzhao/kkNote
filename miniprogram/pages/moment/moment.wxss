@@ -3,6 +3,12 @@
   background-color: #f6f7f9;
   min-height: 100vh;
   padding-bottom: 120rpx;
+  /* 防止键盘弹起时的整体抖动 */
+  position: relative;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  /* 确保页面在键盘弹起时保持稳定 */
+  overflow-x: hidden;
 }
 
 /* Banner区域 */
@@ -481,12 +487,25 @@
 /* 发布弹窗 */
 .publish-popup {
   border-radius: 24rpx 24rpx 0 0;
+  /* 防止键盘弹起时抖动 */
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
 }
 
 .publish-content {
   background: #ffffff;
   border-radius: 24rpx 24rpx 0 0;
   padding: 32rpx;
+  /* 设置最大高度，防止内容过多时超出屏幕 */
+  max-height: 80vh;
+  overflow-y: auto;
+  /* 防止键盘弹起时的布局抖动 */
+  position: relative;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
 }
 
 .publish-header {
@@ -519,6 +538,12 @@
 
 .publish-textarea {
   min-height: 120rpx;
+  /* 防止键盘弹起时的抖动 */
+  position: relative;
+  z-index: 1;
+  /* 确保textarea在键盘弹起时保持稳定 */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
 }
 
 /* 图片上传区域 */
