@@ -65,10 +65,10 @@ exports.main = async (event, context) => {
       }
       
       // 文字统计
-      if (post.text && typeof post.text === 'string') {
-        textCount++;
+      if (post.text && typeof post.text === 'string' && post.text.trim()) {
+        textCount++; // 有文字内容的动态数量
         const words = post.text.trim().length;
-        totalWords += words;
+        totalWords += words; // 累加所有文字的字符数
       }
       
       // 活跃日期统计

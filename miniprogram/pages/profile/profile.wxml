@@ -48,7 +48,7 @@
         </view>
         <view class="stat-item">
           <view class="stat-icon">✍️</view>
-          <text class="stat-number">{{stats.textCount}}</text>
+          <text class="stat-number">{{stats.totalWords}}</text>
           <text class="stat-label">文字数量</text>
         </view>
       </view>

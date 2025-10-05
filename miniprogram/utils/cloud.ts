@@ -460,8 +460,8 @@ export const calculateUserStats = (userId: string): Promise<any> => {
             
             let postsCount = 0;
             let imagesCount = 0;
-            let textCount = 0;
-            let totalWords = 0;
+            let textCount = 0; // 有文字内容的动态数量
+            let totalWords = 0; // 所有文字的总字符数
             const activeDays = new Set();
             
             // 计算统计数据
@@ -472,10 +472,10 @@ export const calculateUserStats = (userId: string): Promise<any> => {
                 imagesCount += post.images.length;
               }
               
-              if (post.text && typeof post.text === 'string') {
-                textCount++;
+              if (post.text && typeof post.text === 'string' && post.text.trim()) {
+                textCount++; // 有文字内容的动态数量
                 const words = post.text.trim().length;
-                totalWords += words;
+                totalWords += words; // 累加所有文字的字符数
               }
               
               if (post.momentTime) {
