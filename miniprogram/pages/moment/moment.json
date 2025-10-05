@@ -1,7 +1,7 @@
 {
   "enablePullDownRefresh": true,
   "onReachBottomDistance": 50,
-  "disableScroll": false,
+  "disableScroll": true,
   "usingComponents": {
     "t-avatar": "tdesign-miniprogram/avatar/avatar",
     "t-image": "tdesign-miniprogram/image/image",

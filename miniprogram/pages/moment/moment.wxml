@@ -142,14 +142,6 @@
   </view>
   </scroll-view>
 
-  <!-- 发布按钮 -->
-  <view 
-    class="publish-fab-native"
-    bind:tap="showPublishPopup"
-  >
-    <text class="fab-icon">+</text>
-  </view>
-
   <!-- 发布弹窗 -->
   <t-popup 
     visible="{{showPublish}}" 
@@ -174,11 +166,14 @@
           adjust-position="{{true}}"
           hold-keyboard="{{false}}"
           cursor-spacing="{{20}}"
+          auto-height="{{true}}"
+          show-confirm-bar="{{false}}"
+          disable-default-padding="{{false}}"
         />
         
-        <!-- 图片上传区域 -->
-        <view class="image-upload-section">
-          <view class="upload-tip">选择图片（最多9张）</view>
+        <!-- 图片上传区域 - 只在有图片或需要添加时显示 -->
+        <view class="image-upload-section" wx:if="{{publishImages.length > 0 || publishImages.length < 9}}">
+          <view class="upload-tip" wx:if="{{publishImages.length === 0}}">选择图片（最多9张）</view>
           <view class="image-grid">
             <!-- 已选择的图片 -->
             <view 
@@ -291,4 +286,16 @@
 
   <!-- Toast提示 -->
   <t-toast id="t-toast" />
+</view>
+
+<!-- 发布按钮 - 移到容器外面确保始终可见 -->
+<view 
+  wx:if="{{showFab}}"
+  class="publish-fab-native"
+  bind:tap="showPublishPopup"
+  style="position: fixed !important; right: 30rpx !important; bottom: 30rpx !important; z-index: 99999 !important; width: 80rpx !important; height: 80rpx !important; background-color: #666666 !important; border-radius: 50% !important; display: flex !important; align-items: center !important; justify-content: center !important; box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.15) !important;"
+>
+  <text class="fab-icon">+</text>
+  <!-- 发布提示文字 -->
+  <view class="publish-tip">发布</view>
 </view>

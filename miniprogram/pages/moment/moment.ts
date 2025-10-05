@@ -22,6 +22,7 @@ Page({
   data: {
     posts: [] as Post[],
     showPublish: false,
+    showFab: true, // 控制发布按钮显示
     publishText: '',
     publishImages: [] as string[],
     publishTime: new Date().toISOString(),
@@ -89,6 +90,9 @@ Page({
     this.loadPosts();
     this.initWeather();
     
+    // 确保发布按钮显示
+    this.ensurePublishButtonVisible();
+    
     // 记录进入应用行为
     recordEnterAppAction();
   },
@@ -98,6 +102,8 @@ Page({
     this.loadPosts(true);
     // 重新初始化发布时间为当前时间
     this.initPublishTime();
+    // 确保发布按钮显示
+    this.ensurePublishButtonVisible();
   },
 
   // 下拉刷新
@@ -298,17 +304,31 @@ Page({
   showPublishPopup() {
     // 重新初始化发布时间为当前时间
     this.initPublishTime();
-    this.setData({ showPublish: true });
+    this.setData({ 
+      showPublish: true,
+      showFab: false // 隐藏发布按钮
+    });
+    
+    // 延迟确保弹窗内容完全显示
+    setTimeout(() => {
+      this.ensurePopupContentVisible();
+    }, 100);
   },
 
   // 隐藏发布弹窗
   hidePublishPopup() {
-    this.setData({ showPublish: false });
+    this.setData({ 
+      showPublish: false,
+      showFab: true // 重新显示发布按钮
+    });
   },
 
   // 发布弹窗显示状态变化
   onPublishVisibleChange(e: any) {
-    this.setData({ showPublish: e.detail.visible });
+    this.setData({ 
+      showPublish: e.detail.visible,
+      showFab: !e.detail.visible // 弹窗关闭时显示发布按钮，弹窗打开时隐藏发布按钮
+    });
   },
 
   // 文字内容变化
@@ -1402,5 +1422,94 @@ Page({
   restoreLayout() {
     console.log('恢复布局');
     // 可以在这里添加恢复布局的逻辑
+  },
+
+  // 确保发布按钮显示
+  ensurePublishButtonVisible() {
+    console.log('确保发布按钮显示');
+    
+    // 使用选择器查询确保按钮存在
+    const query = wx.createSelectorQuery();
+    query.select('.publish-fab-native').boundingClientRect();
+    query.exec((res) => {
+      if (res[0]) {
+        console.log('✅ 发布按钮已存在，位置:', res[0]);
+        console.log('✅ 按钮尺寸:', res[0].width, 'x', res[0].height);
+        console.log('✅ 按钮位置: right', res[0].right, 'bottom', res[0].bottom);
+        
+        // 检查按钮是否在视窗内
+        const systemInfo = wx.getSystemInfoSync();
+        const windowHeight = systemInfo.windowHeight;
+        const windowWidth = systemInfo.windowWidth;
+        
+        console.log('✅ 屏幕尺寸:', windowWidth, 'x', windowHeight);
+        console.log('✅ 按钮是否在视窗内:', res[0].top >= 0 && res[0].left >= 0 && res[0].bottom <= windowHeight && res[0].right <= windowWidth);
+      } else {
+        console.log('❌ 发布按钮未找到，可能需要重新渲染');
+        // 强制重新渲染
+        this.setData({}, () => {
+          console.log('页面重新渲染完成');
+        });
+      }
+    });
+    
+    // 延迟确保按钮可见性
+    setTimeout(() => {
+      this.setData({}, () => {
+        console.log('发布按钮可见性检查完成');
+      });
+    }, 100);
+    
+    // 额外延迟检查
+    setTimeout(() => {
+      this.forceButtonVisible();
+    }, 500);
+  },
+
+  // 强制按钮可见
+  forceButtonVisible() {
+    console.log('强制按钮可见');
+    
+    // 尝试通过DOM操作强制显示按钮
+    const query = wx.createSelectorQuery();
+    query.select('.publish-fab-native').boundingClientRect();
+    query.exec((res) => {
+      if (res[0]) {
+        console.log('✅ 按钮强制显示成功');
+      } else {
+        console.log('❌ 按钮仍然不可见，尝试其他方法');
+        // 可以在这里添加其他强制显示的方法
+      }
+    });
+  },
+
+  // 确保弹窗内容完全可见
+  ensurePopupContentVisible() {
+    console.log('确保弹窗内容完全可见');
+    
+    // 检查弹窗内容区域
+    const query = wx.createSelectorQuery();
+    query.select('.publish-content').boundingClientRect();
+    query.select('.publish-actions').boundingClientRect();
+    query.exec((res) => {
+      if (res[0] && res[1]) {
+        const contentRect = res[0];
+        const actionsRect = res[1];
+        const systemInfo = wx.getSystemInfoSync();
+        
+        console.log('弹窗内容区域:', contentRect);
+        console.log('操作按钮区域:', actionsRect);
+        console.log('屏幕高度:', systemInfo.windowHeight);
+        
+        // 检查按钮是否在屏幕可见区域内
+        const buttonVisible = actionsRect.bottom <= systemInfo.windowHeight;
+        console.log('操作按钮是否可见:', buttonVisible);
+        
+        if (!buttonVisible) {
+          console.log('⚠️ 操作按钮不可见，需要调整弹窗高度');
+          // 可以在这里添加调整弹窗高度的逻辑
+        }
+      }
+    });
   }
 });
