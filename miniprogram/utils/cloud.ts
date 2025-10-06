@@ -476,16 +476,6 @@ export const calculateUserStats = (userId: string): Promise<any> => {
                 textCount++; // 有文字内容的动态数量
                 const words = post.text.trim().length;
                 totalWords += words; // 累加所有文字的字符数
-                
-                // 调试特定用户的文字统计
-                if (userId === 'okU9A1yvJI1WS_NfmEo0wMY9Lyl8') {
-                  console.log(`前端第${index + 1}条文字统计:`, {
-                    text: post.text,
-                    trimmedLength: words,
-                    currentTotalWords: totalWords,
-                    currentTextCount: textCount
-                  });
-                }
               }
               
               if (post.momentTime) {
@@ -508,17 +498,6 @@ export const calculateUserStats = (userId: string): Promise<any> => {
             
             console.log('本地用户统计数据计算完成:', stats);
             
-            // 调试特定用户的最终结果
-            if (userId === 'okU9A1yvJI1WS_NfmEo0wMY9Lyl8') {
-              console.log('=== 前端用户 okU9A1yvJI1WS_NfmEo0wMY9Lyl8 最终统计结果 ===');
-              console.log('postsCount:', postsCount);
-              console.log('imagesCount:', imagesCount);
-              console.log('textCount:', textCount);
-              console.log('totalWords:', totalWords);
-              console.log('avgWords:', avgWords);
-              console.log('activeDays:', activeDays.size);
-            }
-            
             resolve(stats);
           },
           fail: (localError) => {
@@ -535,6 +514,51 @@ export const calculateUserStats = (userId: string): Promise<any> => {
 };
 
 // 行为记录相关函数
+
+// 获取东8区时间字符串
+const getUTC8TimeString = (): string => {
+  const now = new Date();
+  // 转换为东8区时间 (UTC+8)
+  const utc8Time = new Date(now.getTime() + (8 * 60 * 60 * 1000));
+  return utc8Time.toISOString();
+};
+
+// 测试东8区时间计算（调试用）
+export const testUTC8Time = (): void => {
+  const now = new Date();
+  const utc8Time = getUTC8TimeString();
+  const utcTime = now.toISOString();
+  
+  console.log('=== UTC8时间测试 ===');
+  console.log('当前UTC时间:', utcTime);
+  console.log('当前东8区时间:', utc8Time);
+  console.log('时间差:', (new Date(utc8Time).getTime() - now.getTime()) / (1000 * 60 * 60), '小时');
+  console.log('==================');
+};
+
+// 示例：查询actions表中的utc8Time字段
+export const queryActionsWithUTC8Time = (): Promise<any[]> => {
+  return new Promise((resolve, reject) => {
+    try {
+      const db = getDb();
+      const actions = db.collection('actions');
+      
+      actions.orderBy('utc8Time', 'desc').limit(10).get({
+        success: (res) => {
+          console.log('查询actions表成功，包含utc8Time字段:', res.data);
+          resolve(res.data);
+        },
+        fail: (error) => {
+          console.error('查询actions表失败:', error);
+          reject(error);
+        }
+      });
+    } catch (error) {
+      console.error('查询actions表时发生异常:', error);
+      reject(error);
+    }
+  });
+};
 
 // 记录用户行为
 export const recordUserAction = (actionType: string, actionData?: any): Promise<boolean> => {
@@ -558,7 +582,8 @@ export const recordUserAction = (actionType: string, actionData?: any): Promise<
         openid: openid,
         nickname: nickname, // 用户昵称
         actionType: actionType, // 行为类型：'view_image', 'publish_post', 'delete_post', 'enter_app', 'view_profile' 等
-        actionTime: new Date().toISOString(), // 行为时间
+        actionTime: new Date().toISOString(), // 行为时间 (UTC时间)
+        utc8Time: getUTC8TimeString(), // 东8区时间
         actionData: actionData || {}, // 行为相关数据
         createdAt: Date.now(),
         userAgent: wx.getSystemInfoSync(), // 设备信息

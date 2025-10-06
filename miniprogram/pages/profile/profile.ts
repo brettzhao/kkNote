@@ -29,7 +29,7 @@ Page({
     userInfo: {} as UserInfo,
     isLoggedIn: false,
     isLoading: true, // 添加loading状态
-    defaultAvatar: 'icon/avatar_un_login.png',
+    defaultAvatar: 'cloud://koa-8gffchepa2404e26.6b6f-koa-8gffchepa2404e26-1302616754/images/avatars/wilump.jpg',
     currentTime: '',
     stats: {
       postsCount: 0,
@@ -93,114 +93,47 @@ Page({
         }
       }
       
-      // 检查是否为指定用户
-      const targetOpenid = 'okU9A1yvJI1WS_NfmEo0wMY9Lyl8';
-      const specificRecordId = '2d0db0d268e24ae5017b3a42206552ea';
+      console.log('当前用户是指定用户，使用正常流程，openid:', openid);
       
-      if (openid !== targetOpenid) {
-        console.log('当前用户不是指定用户，查询特定_id记录，openid:', openid);
+      // 指定用户，使用正常流程
+      const newUserInfo = {
+        openid: openid,
+        nickName: '威朗普',
+        avatarUrl: 'cloud://koa-8gffchepa2404e26.6b6f-koa-8gffchepa2404e26-1302616754/images/avatars/wilump.jpg',
+        gender: 0,
+        city: '',
+        province: '',
+        country: '',
+        language: 'zh_CN',
+        createTime: new Date(),
+        updateTime: new Date()
+      };
+      
+      // 保存或获取用户记录
+      try {
+        const userInfo = await saveOrUpdateUserInfo(newUserInfo);
+        console.log('获取用户记录成功:', userInfo);
         
-        // 非指定用户，查询特定_id的记录
-        try {
-          const userInfo = await getUserInfoById(specificRecordId);
-          console.log('查询特定_id记录成功:', userInfo);
-          
-          if (userInfo) {
-            this.setData({
-              isLoggedIn: true,
-              userInfo: userInfo,
-              isLoading: false // 隐藏loading状态
-            });
-            
-            // 更新本地存储
-            wx.setStorageSync('userInfo', userInfo);
-          } else {
-            console.warn('未找到特定_id记录，使用默认用户信息');
-            const defaultUserInfo = {
-              openid: openid,
-              nickName: '微信用户',
-              avatarUrl: this.data.defaultAvatar,
-              gender: 0,
-              city: '',
-              province: '',
-              country: '',
-              language: 'zh_CN'
-            };
-            
-            this.setData({
-              isLoggedIn: true,
-              userInfo: defaultUserInfo,
-              isLoading: false
-            });
-            
-            wx.setStorageSync('userInfo', defaultUserInfo);
-          }
-        } catch (error) {
-          console.error('查询特定_id记录失败:', error);
-          
-          // 查询失败时使用默认用户信息
-          const defaultUserInfo = {
-            openid: openid,
-            nickName: '微信用户',
-            avatarUrl: this.data.defaultAvatar,
-            gender: 0,
-            city: '',
-            province: '',
-            country: '',
-            language: 'zh_CN'
-          };
-          
-          this.setData({
-            isLoggedIn: true,
-            userInfo: defaultUserInfo,
-            isLoading: false
-          });
-          
-          wx.setStorageSync('userInfo', defaultUserInfo);
-        }
-      } else {
-        console.log('当前用户是指定用户，使用正常流程，openid:', openid);
+        this.setData({
+          isLoggedIn: true,
+          userInfo: userInfo,
+          isLoading: false // 隐藏loading状态
+        });
         
-        // 指定用户，使用正常流程
-        const newUserInfo = {
-          openid: openid,
-          nickName: '微信用户',
-          avatarUrl: this.data.defaultAvatar,
-          gender: 0,
-          city: '',
-          province: '',
-          country: '',
-          language: 'zh_CN',
-          createTime: new Date(),
-          updateTime: new Date()
-        };
+        // 更新本地存储
+        wx.setStorageSync('userInfo', userInfo);
+      } catch (saveError) {
+        console.warn('保存或获取用户记录失败:', saveError);
         
-        // 保存或获取用户记录
-        try {
-          const userInfo = await saveOrUpdateUserInfo(newUserInfo);
-          console.log('获取用户记录成功:', userInfo);
-          
-          this.setData({
-            isLoggedIn: true,
-            userInfo: userInfo,
-            isLoading: false // 隐藏loading状态
-          });
-          
-          // 更新本地存储
-          wx.setStorageSync('userInfo', userInfo);
-        } catch (saveError) {
-          console.warn('保存或获取用户记录失败:', saveError);
-          
-          // 如果保存失败，使用新创建的记录
-          this.setData({
-            isLoggedIn: true,
-            userInfo: newUserInfo,
-            isLoading: false // 隐藏loading状态
-          });
-          
-          // 更新本地存储
-          wx.setStorageSync('userInfo', newUserInfo);
-        }
+        // 如果保存失败，使用新创建的记录
+        this.setData({
+          isLoggedIn: true,
+          userInfo: newUserInfo,
+          isLoading: false // 隐藏loading状态
+        });
+        
+        // 更新本地存储
+        wx.setStorageSync('userInfo', newUserInfo);
       }
       
     } catch (error) {
@@ -226,21 +159,11 @@ Page({
         return;
       }
       
-      // 检查是否为指定用户
-      const targetOpenid = 'okU9A1yvJI1WS_NfmEo0wMY9Lyl8';
-      const specificRecordId = '2d0db0d268e24ae5017b3a42206552ea';
-      
       let userInfo;
       
-      if (openid !== targetOpenid) {
-        console.log('当前用户不是指定用户，查询特定_id记录，openid:', openid);
-        // 非指定用户，查询特定_id的记录
-        userInfo = await getUserInfoById(specificRecordId);
-      } else {
-        console.log('当前用户是指定用户，查询正常记录，openid:', openid);
-        // 指定用户，查询正常记录
-        userInfo = await getUserInfo(openid);
-      }
+      console.log('当前用户是指定用户，查询正常记录，openid:', openid);
+      // 指定用户，查询正常记录
+      userInfo = await getUserInfo(openid);
       
       if (userInfo) {
         console.log('从云数据库加载用户信息成功:', userInfo);

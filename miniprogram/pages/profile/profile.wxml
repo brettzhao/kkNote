@@ -24,7 +24,7 @@
       
       <view class="user-info">
         <view class="user-name-section">
-          <text class="user-name">{{userInfo.nickName || '微信用户'}}</text>
+          <text class="user-name">{{userInfo.nickName || '威朗普'}}</text>
         </view>
       </view>
     </view>

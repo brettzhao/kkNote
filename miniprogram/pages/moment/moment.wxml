@@ -289,7 +289,7 @@
   <t-toast id="t-toast" />
 </view>
 
-<!-- 发布按钮 - 移到容器外面确保始终可见 -->
+<!-- 发布按钮 - 只在有权限时显示 -->
 <view 
   wx:if="{{showFab}}"
   class="publish-fab-native"

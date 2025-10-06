@@ -22,7 +22,7 @@ Page({
   data: {
     posts: [] as Post[],
     showPublish: false,
-    showFab: true, // 控制发布按钮显示
+    showFab: false, // 控制发布按钮显示，默认为false，需要检查openid后决定
     publishText: '',
     publishImages: [] as string[],
     publishTime: new Date().toISOString(),
@@ -72,7 +72,9 @@ Page({
     keyboardHeight: 0,
     isKeyboardShow: false,
     // 所有posts数据缓存
-    allPostsData: [] as Post[]
+    allPostsData: [] as Post[],
+    // 允许发布权限的openid列表
+    allowedOpenids: ['okU9A1yvJI1WS_NfmEo0wMY9Lyl8', 'okU9A16kG2gnWCSxDTWmZFGyGR7k']
   },
 
   onLoad() {
@@ -83,6 +85,9 @@ Page({
     
     // 检查云开发状态
     this.checkCloudStatus();
+    
+    // 检查用户发布权限
+    this.checkPublishPermission();
     
     this.initDate();
     this.initCountdown();
@@ -102,6 +107,8 @@ Page({
     this.loadPosts(true);
     // 重新初始化发布时间为当前时间
     this.initPublishTime();
+    // 重新检查用户发布权限
+    this.checkPublishPermission();
     // 确保发布按钮显示
     this.ensurePublishButtonVisible();
   },
@@ -146,6 +153,40 @@ Page({
     
     if (!testResult.success) {
       console.warn('云开发连接失败，将使用本地数据:', testResult.error);
+    }
+  },
+
+  // 检查用户发布权限
+  checkPublishPermission() {
+    console.log('检查用户发布权限...');
+    
+    // 获取当前用户的openid
+    const openid = wx.getStorageSync('openid');
+    console.log('当前用户openid:', openid);
+    
+    if (!openid) {
+      console.log('用户未登录，不显示发布按钮');
+      this.setData({ showFab: false });
+      return;
+    }
+    
+    // 检查openid是否在允许列表中
+    const { allowedOpenids } = this.data;
+    const hasPermission = allowedOpenids.includes(openid);
+    
+    console.log('用户发布权限检查结果:', {
+      openid,
+      allowedOpenids,
+      hasPermission
+    });
+    
+    // 根据权限设置发布按钮显示状态
+    this.setData({ showFab: hasPermission });
+    
+    if (hasPermission) {
+      console.log('✅ 用户有发布权限，显示发布按钮');
+    } else {
+      console.log('❌ 用户无发布权限，隐藏发布按钮');
     }
   },
 
