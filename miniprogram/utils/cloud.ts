@@ -139,24 +139,38 @@ const updateUserInfo = (openid: string, userInfo: any): Promise<any> => {
     
       users.where({
         openid: openid
-      }).update({
-        data: updateData,
-        success: (res) => {
-          console.log('云数据库用户信息更新成功:', {
-            openid: openid,
-            updatedFields: Object.keys(updateData),
-            updatedCount: res.stats.updated,
-            note: 'openid字段已排除，未更新'
+      }).get().then((queryRes) => {
+        if (queryRes.data.length > 0) {
+          const docId = queryRes.data[0]._id;
+          if (docId) {
+            users.doc(docId).update({
+            data: updateData,
+            success: (res) => {
+              console.log('云数据库用户信息更新成功:', {
+                openid: openid,
+                updatedFields: Object.keys(updateData),
+                updatedCount: res.stats.updated,
+                note: 'openid字段已排除，未更新'
+              });
+              resolve(res);
+            },
+            fail: (error) => {
+              console.error('云数据库用户信息更新失败:', {
+                openid: openid,
+                error: error
+              });
+              reject(error);
+            }
           });
-          resolve(res);
-        },
-        fail: (error) => {
-          console.error('云数据库用户信息更新失败:', {
-            openid: openid,
-            error: error
-          });
-          reject(error);
+          } else {
+            reject(new Error('文档ID不存在'));
+          }
+        } else {
+          reject(new Error('用户不存在'));
         }
+      }).catch((error) => {
+        console.error('查询用户失败', error);
+        reject(error);
       });
     } catch (error) {
       console.error('更新用户信息时发生异常:', error);
@@ -365,15 +379,29 @@ export const deletePost = (postId: string): Promise<any> => {
     
       posts.where({
         id: postId
-      }).remove({
-        success: (res) => {
-          console.log('删除动态成功', res);
-          resolve(res);
-        },
-        fail: (error) => {
-          console.error('删除动态失败', error);
-          reject(error);
+      }).get().then((queryRes) => {
+        if (queryRes.data.length > 0) {
+          const docId = queryRes.data[0]._id;
+          if (docId) {
+            posts.doc(docId).remove({
+            success: (res) => {
+              console.log('删除动态成功', res);
+              resolve(res);
+            },
+            fail: (error) => {
+              console.error('删除动态失败', error);
+              reject(error);
+            }
+          });
+          } else {
+            reject(new Error('文档ID不存在'));
+          }
+        } else {
+          reject(new Error('动态不存在'));
         }
+      }).catch((error) => {
+        console.error('查询动态失败', error);
+        reject(error);
       });
     } catch (error) {
       reject(error);
@@ -661,5 +689,111 @@ export const recordLoadMoreAction = (page: number): Promise<boolean> => {
   return recordUserAction('load_more', {
     page: page,
     loadTime: new Date().toISOString()
+  });
+};
+
+// 获取评论列表
+export const getComments = (postId: string): Promise<any[]> => {
+  return new Promise((resolve, reject) => {
+    try {
+      const db = getDb();
+      const comments = db.collection('comments');
+    
+      comments.where({
+        postId: postId
+      }).orderBy('createdAt', 'asc').get({
+        success: (res) => {
+          console.log('获取评论成功', res);
+          // 过滤掉已删除的评论
+          const validComments = res.data.filter((comment: any) => !comment.deleted);
+          resolve(validComments);
+        },
+        fail: (error) => {
+          console.error('获取评论失败', error);
+          reject(error);
+        }
+      });
+    } catch (error) {
+      reject(error);
+    }
+  });
+};
+
+// 添加评论
+export const addComment = (comment: any): Promise<any> => {
+  return new Promise((resolve, reject) => {
+    try {
+      const db = getDb();
+      const comments = db.collection('comments');
+    
+      comments.add({
+        data: {
+          ...comment,
+          deleted: false,
+          createTime: new Date(),
+          updateTime: new Date()
+        },
+        success: (res) => {
+          console.log('添加评论成功', res);
+          resolve(res);
+        },
+        fail: (error) => {
+          console.error('添加评论失败', error);
+          reject(error);
+        }
+      });
+    } catch (error) {
+      reject(error);
+    }
+  });
+};
+
+// 删除评论（软删除）
+export const deleteComment = (commentId: string): Promise<any> => {
+  return new Promise((resolve, reject) => {
+    try {
+      const db = getDb();
+      const comments = db.collection('comments');
+    
+      // 先查询评论，获取其_id
+      comments.where({
+        id: commentId
+      }).get({
+        success: (queryRes) => {
+          if (queryRes.data.length === 0) {
+            reject(new Error('评论不存在'));
+            return;
+          }
+          
+          const docId = queryRes.data[0]._id;
+          if (!docId) {
+            reject(new Error('无法获取评论文档ID'));
+            return;
+          }
+          
+          // 使用_id更新文档
+          comments.doc(docId).update({
+            data: {
+              deleted: true,
+              updateTime: new Date()
+            },
+            success: (res) => {
+              console.log('删除评论成功', res);
+              resolve(res);
+            },
+            fail: (error) => {
+              console.error('删除评论失败', error);
+              reject(error);
+            }
+          });
+        },
+        fail: (error) => {
+          console.error('查询评论失败', error);
+          reject(error);
+        }
+      });
+    } catch (error) {
+      reject(error);
+    }
   });
 };

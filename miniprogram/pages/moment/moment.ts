@@ -1,6 +1,6 @@
 // moment页面逻辑
 import { initCloud } from '../../utils/auth';
-import { getPosts, addPost, deletePost, uploadFile, recordImageViewAction, recordPublishAction, recordDeleteAction, recordEnterAppAction, recordRefreshAction, recordLoadMoreAction } from '../../utils/cloud';
+import { getPosts, addPost, deletePost, uploadFile, recordImageViewAction, recordPublishAction, recordDeleteAction, recordEnterAppAction, recordRefreshAction, recordLoadMoreAction, getComments, addComment, deleteComment } from '../../utils/cloud';
 import { testCloudConnection, getCloudInfo } from '../../utils/cloud-test';
 import { getTodayLunarDate } from '../../utils/lunar';
 
@@ -14,6 +14,21 @@ interface Post {
   avatar: string;
   time: string;
   momentTime: string;
+  createdAt: number;
+  deleted?: boolean;
+  comments?: Comment[];
+  showAllComments?: boolean;
+}
+
+interface Comment {
+  _id?: string;
+  id: string;
+  postId: string;
+  openid: string;
+  authorName: string;
+  authorAvatar: string;
+  content: string;
+  time: string;
   createdAt: number;
   deleted?: boolean;
 }
@@ -31,7 +46,6 @@ Page({
     timePickerRange: [[], [], [], [], []], // 年、月、日、时、分的选项
     timePickerValue: [0, 0, 0, 0, 0], // 当前选中的索引
     showDeleteOptions: false,
-    selectedPostId: '',
     // 分页相关
     pageSize: 10, // 每页加载10条数据
     currentPage: 0, // 当前页码
@@ -74,7 +88,17 @@ Page({
     // 所有posts数据缓存
     allPostsData: [] as Post[],
     // 允许发布权限的openid列表
-    allowedOpenids: ['okU9A1yvJI1WS_NfmEo0wMY9Lyl8', 'okU9A16kG2gnWCSxDTWmZFGyGR7k']
+    allowedOpenids: ['okU9A1yvJI1WS_NfmEo0wMY9Lyl8', 'okU9A16kG2gnWCSxDTWmZFGyGR7k'],
+    // 评论相关
+    showCommentPopup: false,
+    selectedPostId: '',
+    currentPostComments: [] as Comment[],
+    commentText: '',
+    commentSubmitting: false,
+    showCommentDeleteOptions: false,
+    selectedCommentId: '',
+    // 允许评论权限的openid列表
+    allowedCommentOpenids: ['okU9A1yvJI1WS_NfmEo0wMY9Lyl8', 'okU9A16kG2gnWCSxDTWmZFGyGR7k']
   },
 
   onLoad() {
@@ -98,8 +122,12 @@ Page({
     // 确保发布按钮显示
     this.ensurePublishButtonVisible();
     
+    
     // 记录进入应用行为
     recordEnterAppAction();
+    
+    // 测试评论加载
+    this.testCommentLoading();
   },
 
   onShow() {
@@ -272,6 +300,8 @@ Page({
       
       if (refresh) {
         // 刷新时替换所有数据
+        console.log('刷新数据，设置posts:', newPosts);
+        console.log('第一个动态的评论:', newPosts[0]?.comments);
         this.setData({ 
           posts: newPosts,
           currentPage: 1,
@@ -280,6 +310,8 @@ Page({
       } else {
         // 加载更多时追加数据
         const allPosts = [...this.data.posts, ...newPosts];
+        console.log('加载更多数据，设置posts:', allPosts);
+        console.log('第一个动态的评论:', allPosts[0]?.comments);
         this.setData({ 
           posts: allPosts,
           currentPage: this.data.currentPage + 1,
@@ -289,6 +321,16 @@ Page({
       
       // 保存到本地存储作为缓存
       wx.setStorageSync('posts', this.data.posts);
+      
+      // 强制更新页面数据
+      console.log('最终设置的posts数据:', this.data.posts);
+      console.log('第一个动态的最终评论:', this.data.posts[0]?.comments);
+      
+      // 强制触发页面重新渲染
+      this.setData({
+        posts: [...this.data.posts]
+      });
+      
     } catch (error) {
       console.error('从云数据库加载动态失败:', error);
       // 如果云数据库加载失败，使用本地存储
@@ -313,8 +355,12 @@ Page({
     console.log('从云函数获取所有posts数据');
     const allPosts = await getPosts();
     
+    // 为每个动态加载评论
+    const postsWithComments = await this.loadCommentsForPosts(allPosts);
+    console.log('loadPostsFromCloud - 评论加载完成，第一个动态的评论:', postsWithComments[0]?.comments);
+    
     // 按momentTime倒序排列（最新的在前）
-    allPosts.sort((a, b) => {
+    postsWithComments.sort((a, b) => {
       const timeA = new Date(a.momentTime).getTime();
       const timeB = new Date(b.momentTime).getTime();
       return timeB - timeA;
@@ -322,24 +368,81 @@ Page({
     
     // 缓存所有数据
     this.setData({
-      allPostsData: allPosts
+      allPostsData: postsWithComments
     });
+    console.log('loadPostsFromCloud - 数据缓存完成，第一个动态的评论:', this.data.allPostsData[0]?.comments);
     
     if (refresh) {
       // 刷新时返回第一页数据
-      return allPosts.slice(0, this.data.pageSize);
+      return postsWithComments.slice(0, this.data.pageSize);
     } else {
       // 加载更多时返回下一页数据
       const startIndex = this.data.currentPage * this.data.pageSize;
       const endIndex = startIndex + this.data.pageSize;
-      return allPosts.slice(startIndex, endIndex);
+      return postsWithComments.slice(startIndex, endIndex);
     }
+  },
+
+  // 为动态列表加载评论
+  async loadCommentsForPosts(posts: Post[]): Promise<Post[]> {
+    console.log('开始为动态加载评论，动态数量:', posts.length);
+    
+    // 先检查是否有评论数据
+    if (posts.length === 0) {
+      console.log('没有动态数据，跳过评论加载');
+      return posts;
+    }
+    
+    const postsWithComments = await Promise.all(
+      posts.map(async (post) => {
+        try {
+          console.log(`加载动态 ${post.id} 的评论...`);
+          const comments = await getComments(post.id);
+          console.log(`动态 ${post.id} 的评论数量:`, comments.length);
+          
+          if (comments.length > 0) {
+            // 按时间正序排列（最早的在前）
+            const sortedComments = comments.sort((a, b) => a.createdAt - b.createdAt);
+            const formattedComments = sortedComments.map(comment => ({
+              ...comment,
+              time: this.formatTime(new Date(comment.createdAt))
+            }));
+            
+            console.log(`动态 ${post.id} 格式化后的评论:`, formattedComments);
+            
+            return { 
+              ...post, 
+              comments: formattedComments,
+              showAllComments: false // 默认折叠状态
+            };
+          } else {
+            console.log(`动态 ${post.id} 没有评论`);
+            return { 
+              ...post, 
+              comments: [],
+              showAllComments: false
+            };
+          }
+        } catch (error) {
+          console.error(`加载动态 ${post.id} 的评论失败:`, error);
+          return { ...post, comments: [], showAllComments: false };
+        }
+      })
+    );
+    
+    console.log('所有动态评论加载完成，结果:', postsWithComments);
+    console.log('第一个动态的评论:', postsWithComments[0]?.comments);
+    
+    return postsWithComments;
   },
 
   // 保存动态数据
   savePosts() {
     wx.setStorageSync('posts', this.data.posts);
   },
+
+
+
 
   // 显示发布弹窗
   showPublishPopup() {
@@ -582,6 +685,7 @@ Page({
     const { url, postid } = e.currentTarget.dataset;
     console.log('点击图片预览:', url);
     
+    // 显示图片预览
     this.setData({
       showImagePreview: true,
       previewImageUrl: url
@@ -918,11 +1022,6 @@ Page({
       console.log('权限不足:', { 
         postOpenid: post.openid, 
         currentOpenid: currentOpenid 
-      });
-      wx.showToast({
-        title: '只能删除自己的动态',
-        icon: 'none',
-        duration: 2000
       });
       return;
     }
@@ -1580,5 +1679,502 @@ Page({
         }
       }
     });
+  },
+
+  // ==================== 评论功能 ====================
+
+  // 点击动态内容
+  onMomentTap(e: any) {
+    const postId = e.currentTarget.dataset.postid;
+    console.log('点击动态内容，postId:', postId);
+    
+    // 检查用户登录状态和权限
+    const openid = wx.getStorageSync('openid');
+    if (!openid) {
+      wx.showToast({
+        title: '请先登录',
+        icon: 'none'
+      });
+      return;
+    }
+    
+    const { allowedCommentOpenids } = this.data;
+    if (!allowedCommentOpenids.includes(openid)) {
+      wx.showToast({
+        title: '您没有评论权限',
+        icon: 'none'
+      });
+      return;
+    }
+    
+    this.setData({
+      showCommentPopup: true,
+      selectedPostId: postId,
+      showFab: false // 隐藏发布按钮
+    });
+  },
+
+  // 点击评论按钮
+  onCommentTap(e: any) {
+    const postId = e.currentTarget.dataset.postid;
+    console.log('点击评论按钮，postId:', postId);
+    
+    // 检查用户评论权限
+    const openid = wx.getStorageSync('openid');
+    if (!openid) {
+      wx.showToast({
+        title: '请先登录',
+        icon: 'none'
+      });
+      return;
+    }
+    
+    const { allowedCommentOpenids } = this.data;
+    if (!allowedCommentOpenids.includes(openid)) {
+      wx.showToast({
+        title: '您没有评论权限',
+        icon: 'none'
+      });
+      return;
+    }
+    
+    this.setData({
+      selectedPostId: postId,
+      showCommentPopup: true,
+      showFab: false, // 隐藏发布按钮
+      commentText: ''
+    });
+  },
+
+  // 加载评论
+  async loadComments(postId: string) {
+    try {
+      console.log('加载评论，postId:', postId);
+      const comments = await getComments(postId);
+      
+      // 格式化评论时间
+      const formattedComments = comments.map(comment => ({
+        ...comment,
+        time: this.formatTime(new Date(comment.createdAt))
+      }));
+      
+      this.setData({
+        currentPostComments: formattedComments
+      });
+      
+      console.log('评论加载成功:', formattedComments);
+    } catch (error) {
+      console.error('加载评论失败:', error);
+      wx.showToast({
+        title: '加载评论失败',
+        icon: 'none'
+      });
+    }
+  },
+
+  // 评论弹窗显示状态变化
+  onCommentPopupVisibleChange(e: any) {
+    this.setData({
+      showCommentPopup: e.detail.visible,
+      showFab: !e.detail.visible // 弹窗关闭时显示发布按钮，弹窗打开时隐藏发布按钮
+    });
+  },
+
+  // 隐藏评论弹窗
+  hideCommentPopup() {
+    this.setData({
+      showCommentPopup: false,
+      showFab: true, // 重新显示发布按钮
+      selectedPostId: '',
+      commentText: ''
+    });
+  },
+
+  // 评论文字变化
+  onCommentTextChange(e: any) {
+    this.setData({ commentText: e.detail.value });
+  },
+
+  // 提交评论
+  async submitComment() {
+    const { commentText, selectedPostId } = this.data;
+    
+    if (!commentText.trim()) {
+      wx.showToast({
+        title: '请输入评论内容',
+        icon: 'none'
+      });
+      return;
+    }
+    
+    // 检查用户登录状态和权限
+    const openid = wx.getStorageSync('openid');
+    if (!openid) {
+      wx.showToast({
+        title: '请先登录',
+        icon: 'none'
+      });
+      return;
+    }
+    
+    const { allowedCommentOpenids } = this.data;
+    if (!allowedCommentOpenids.includes(openid)) {
+      wx.showToast({
+        title: '您没有评论权限',
+        icon: 'none'
+      });
+      return;
+    }
+    
+    this.setData({ commentSubmitting: true });
+    
+    try {
+      // 获取用户信息
+      const userInfo = wx.getStorageSync('userInfo') || {};
+      
+      // 创建评论对象
+      const newComment: Comment = {
+        id: Date.now().toString(),
+        postId: selectedPostId,
+        openid: openid,
+        authorName: userInfo.nickName || '匿名用户',
+        authorAvatar: userInfo.avatarUrl || 'https://i.pravatar.cc/80?img=1',
+        content: commentText.trim(),
+        time: this.formatTime(new Date()),
+        createdAt: Date.now(),
+        deleted: false
+      };
+      
+      // 保存到云数据库
+      await addComment(newComment);
+      
+      // 清空输入框并隐藏弹窗
+      this.setData({
+        commentText: '',
+        showCommentPopup: false,
+        showFab: true // 重新显示发布按钮
+      });
+      
+      // 更新对应动态的评论数据
+      this.updatePostComments(selectedPostId, [newComment]);
+      
+      wx.showToast({
+        title: '评论成功',
+        icon: 'success'
+      });
+      
+      // 立即刷新页面数据
+      this.loadPosts(true); // 强制刷新
+      
+      // 延迟再次刷新确保数据同步
+      setTimeout(() => {
+        this.loadPosts(true); // 强制刷新
+      }, 1000);
+      
+    } catch (error) {
+      console.error('发布评论失败:', error);
+      wx.showToast({
+        title: '评论失败，请重试',
+        icon: 'none'
+      });
+    } finally {
+      this.setData({ commentSubmitting: false });
+    }
+  },
+
+  // 更新动态的评论数据
+  updatePostComments(postId: string, newComments: Comment[]) {
+    const posts = this.data.posts.map(post => {
+      if (post.id === postId) {
+        const existingComments = post.comments || [];
+        const updatedComments = [...existingComments, ...newComments];
+        // 按时间正序排列（最早的在前）
+        const sortedComments = updatedComments.sort((a, b) => a.createdAt - b.createdAt);
+        return { ...post, comments: sortedComments };
+      }
+      return post;
+    });
+    
+    const allPostsData = this.data.allPostsData.map(post => {
+      if (post.id === postId) {
+        const existingComments = post.comments || [];
+        const updatedComments = [...existingComments, ...newComments];
+        // 按时间正序排列（最早的在前）
+        const sortedComments = updatedComments.sort((a, b) => a.createdAt - b.createdAt);
+        return { ...post, comments: sortedComments };
+      }
+      return post;
+    });
+    
+    // 更新数据
+    this.setData({
+      posts,
+      allPostsData
+    });
+    
+    // 强制触发页面重新渲染
+    setTimeout(() => {
+      this.setData({
+        posts: [...this.data.posts]
+      });
+    }, 100);
+    
+    // 保存到本地存储
+    this.savePosts();
+  },
+
+  // 长按评论（在弹窗中）
+  onCommentLongPressPopup(e: any) {
+    const commentId = e.currentTarget.dataset.commentid;
+    const postId = e.currentTarget.dataset.postid;
+    const currentOpenid = wx.getStorageSync('openid');
+    
+    console.log('长按评论（弹窗中）:', { commentId, postId, currentOpenid });
+    
+    // 检查用户是否已登录
+    if (!currentOpenid) {
+      wx.showToast({
+        title: '请先登录',
+        icon: 'none'
+      });
+      return;
+    }
+    
+    // 查找对应的评论
+    const comment = this.data.currentPostComments.find(c => c.id === commentId);
+    if (!comment) {
+      wx.showToast({
+        title: '评论不存在',
+        icon: 'none'
+      });
+      return;
+    }
+    
+    // 检查权限：只有评论的作者才能删除
+    if (comment.openid !== currentOpenid) {
+      return;
+    }
+    
+    // 显示删除选项
+    this.setData({
+      selectedCommentId: commentId,
+      showCommentDeleteOptions: true
+    });
+  },
+
+  // 长按评论（在动态列表中）
+  onCommentLongPress(e: any) {
+    const commentId = e.currentTarget.dataset.commentid;
+    const postId = e.currentTarget.dataset.postid;
+    const currentOpenid = wx.getStorageSync('openid');
+    
+    console.log('长按评论（列表中）:', { commentId, postId, currentOpenid });
+    
+    // 检查用户是否已登录
+    if (!currentOpenid) {
+      wx.showToast({
+        title: '请先登录',
+        icon: 'none'
+      });
+      return;
+    }
+    
+    // 查找对应的动态和评论
+    const post = this.data.posts.find(p => p.id === postId);
+    if (!post || !post.comments) {
+      wx.showToast({
+        title: '评论不存在',
+        icon: 'none'
+      });
+      return;
+    }
+    
+    const comment = post.comments.find(c => c.id === commentId);
+    if (!comment) {
+      wx.showToast({
+        title: '评论不存在',
+        icon: 'none'
+      });
+      return;
+    }
+    
+    // 检查权限：只有评论的作者才能删除
+    if (comment.openid !== currentOpenid) {
+      return;
+    }
+    
+    // 显示删除选项
+    this.setData({
+      selectedCommentId: commentId,
+      showCommentDeleteOptions: true
+    });
+  },
+
+  // 评论删除选项弹窗显示状态变化
+  onCommentDeleteOptionsVisibleChange(e: any) {
+    this.setData({
+      showCommentDeleteOptions: e.detail.visible
+    });
+  },
+
+  // 确认删除评论
+  async confirmCommentDelete() {
+    const { selectedCommentId } = this.data;
+    const currentOpenid = wx.getStorageSync('openid');
+    
+    if (!selectedCommentId) {
+      console.log('没有选中的评论ID');
+      return;
+    }
+    
+    if (!currentOpenid) {
+      wx.showToast({
+        title: '请先登录',
+        icon: 'none'
+      });
+      return;
+    }
+    
+    try {
+      wx.showLoading({ title: '删除中...' });
+      
+      console.log('准备删除评论，commentId:', selectedCommentId);
+      
+      // 从云数据库软删除评论（设置deleted=true）
+      await deleteComment(selectedCommentId);
+      console.log('云数据库删除成功');
+      
+      // 验证删除是否成功
+      setTimeout(async () => {
+        try {
+          const { selectedPostId } = this.data;
+          const comments = await getComments(selectedPostId);
+          console.log('验证删除结果，当前评论数量:', comments.length);
+          console.log('当前评论列表:', comments);
+        } catch (error) {
+          console.error('验证删除结果失败:', error);
+        }
+      }, 1000);
+      
+      // 从本地数据中移除评论
+      this.removeCommentFromLocal(selectedCommentId);
+      console.log('本地数据删除成功');
+      
+      // 关闭弹窗
+      this.setData({
+        showCommentDeleteOptions: false,
+        selectedCommentId: ''
+      });
+      
+      wx.hideLoading();
+      wx.showToast({
+        title: '删除成功',
+        icon: 'success'
+      });
+      
+    } catch (error) {
+      console.error('删除评论失败:', error);
+      wx.hideLoading();
+      wx.showToast({
+        title: '删除失败，请重试',
+        icon: 'none'
+      });
+    }
+  },
+
+  // 取消删除评论
+  cancelCommentDelete() {
+    this.setData({
+      showCommentDeleteOptions: false,
+      selectedCommentId: ''
+    });
+  },
+
+  // 从本地数据中移除评论
+  removeCommentFromLocal(commentId: string) {
+    // 更新当前弹窗中的评论列表
+    const updatedCurrentComments = this.data.currentPostComments.filter(c => c.id !== commentId);
+    this.setData({
+      currentPostComments: updatedCurrentComments
+    });
+    
+    // 更新所有动态中的评论数据
+    const posts = this.data.posts.map(post => {
+      if (post.comments) {
+        const updatedComments = post.comments.filter(c => c.id !== commentId);
+        return { ...post, comments: updatedComments };
+      }
+      return post;
+    });
+    
+    const allPostsData = this.data.allPostsData.map(post => {
+      if (post.comments) {
+        const updatedComments = post.comments.filter(c => c.id !== commentId);
+        return { ...post, comments: updatedComments };
+      }
+      return post;
+    });
+    
+    this.setData({
+      posts,
+      allPostsData
+    });
+    
+    // 保存到本地存储
+    this.savePosts();
+  },
+
+  // 展开/收起评论
+  onCommentExpandToggle(e: any) {
+    const postId = e.currentTarget.dataset.postid;
+    console.log('切换评论展开状态，postId:', postId);
+    
+    // 更新posts数据
+    const posts = this.data.posts.map(post => {
+      if (post.id === postId) {
+        return { ...post, showAllComments: !post.showAllComments };
+      }
+      return post;
+    });
+    
+    // 更新allPostsData数据
+    const allPostsData = this.data.allPostsData.map(post => {
+      if (post.id === postId) {
+        return { ...post, showAllComments: !post.showAllComments };
+      }
+      return post;
+    });
+    
+    this.setData({
+      posts,
+      allPostsData
+    });
+    
+    // 保存到本地存储
+    this.savePosts();
+  },
+
+  // 测试评论加载
+  async testCommentLoading() {
+    console.log('=== 开始测试评论加载 ===');
+    
+    // 等待一段时间让动态加载完成
+    setTimeout(async () => {
+      console.log('当前动态数据:', this.data.posts);
+      
+      if (this.data.posts.length > 0) {
+        const firstPost = this.data.posts[0];
+        console.log('测试第一个动态的评论加载:', firstPost.id);
+        
+        try {
+          const comments = await getComments(firstPost.id);
+          console.log('测试获取到的评论:', comments);
+        } catch (error) {
+          console.error('测试评论加载失败:', error);
+        }
+      } else {
+        console.log('没有动态数据，无法测试评论加载');
+      }
+    }, 2000);
   }
 });
