@@ -145,8 +145,8 @@ exports.main = async (event, context) => {
         const finalThing16 = thing16Value === '系统' ? (subscribe.nickname || '系统') : thing16Value;
         
         // 准备推送数据
-        // 从 subDetail 集合获取数据，时间使用当前时间
-        const currentTime = formatDateTime(new Date());
+        // 从 subDetail 集合获取数据，时间使用当前北京时间（UTC+8）
+        const currentTime = formatDateTime(getBeijingTime());
         const pushData = {
           thing1: { value: thing1Value },  // 从 subDetail 集合获取
           time2: { value: currentTime },  // 使用发送时的当前时间
@@ -300,6 +300,16 @@ exports.main = async (event, context) => {
     };
   }
 };
+
+// 获取北京时间（UTC+8）
+function getBeijingTime() {
+  const now = new Date();
+  // 获取 UTC 时间戳（毫秒）
+  const utcTime = now.getTime() + (now.getTimezoneOffset() * 60 * 1000);
+  // 加上 8 小时（北京时间 UTC+8）
+  const beijingTime = new Date(utcTime + (8 * 60 * 60 * 1000));
+  return beijingTime;
+}
 
 // 格式化日期时间
 function formatDateTime(date) {
