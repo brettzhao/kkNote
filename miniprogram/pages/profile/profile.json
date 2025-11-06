@@ -5,6 +5,7 @@
     "t-cell-group": "tdesign-miniprogram/cell-group/cell-group",
     "t-grid": "tdesign-miniprogram/grid/grid",
     "t-grid-item": "tdesign-miniprogram/grid-item/grid-item",
-    "t-divider": "tdesign-miniprogram/divider/divider"
+    "t-divider": "tdesign-miniprogram/divider/divider",
+    "t-popup": "tdesign-miniprogram/popup/popup"
   }
 }

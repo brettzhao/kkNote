@@ -1,0 +1,15 @@
+{
+  "triggers": [
+    {
+      "name": "scheduledSubscribePush_8am",
+      "type": "timer",
+      "config": "0 0 8 * * * *"
+    },
+    {
+      "name": "scheduledSubscribePush_8pm",
+      "type": "timer",
+      "config": "0 0 20 * * * *"
+    }
+  ]
+}
+

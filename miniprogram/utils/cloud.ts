@@ -797,3 +797,433 @@ export const deleteComment = (commentId: string): Promise<any> => {
     }
   });
 };
+
+// ========== subscribe 订阅相关函数 ==========
+
+// 获取或创建用户的 subscribe 记录
+export const getOrCreateSubscribeRecord = (openid: string, templateId: string, userInfo: {
+  nickName?: string;
+  avatarUrl?: string;
+}): Promise<any> => {
+  return new Promise((resolve, reject) => {
+    try {
+      const db = getDb();
+      const subscribe = db.collection('subscribe');
+      
+      // 查询是否存在该用户和模板的记录
+      subscribe.where({
+        openid: openid,
+        templateId: templateId
+      }).get({
+        success: (res) => {
+          if (res.data.length > 0) {
+            // 记录已存在，返回现有记录
+            console.log('subscribe 记录已存在:', res.data[0]);
+            resolve(res.data[0]);
+          } else {
+            // 记录不存在，创建新记录
+            const newRecord = {
+              openid: openid,
+              templateId: templateId,
+              userId: openid, // 用户ID使用openid
+              nickname: userInfo.nickName || '用户',
+              subscribeCount: 0, // 初始订阅次数为0
+              createTime: new Date(),
+              updateTime: new Date()
+            };
+            
+            subscribe.add({
+              data: newRecord,
+              success: (addRes) => {
+                console.log('创建 subscribe 记录成功:', addRes);
+                resolve({ ...newRecord, _id: addRes._id });
+              },
+              fail: (error) => {
+                console.error('创建 subscribe 记录失败:', error);
+                reject(error);
+              }
+            });
+          }
+        },
+        fail: (error) => {
+          console.error('查询 subscribe 记录失败:', error);
+          reject(error);
+        }
+      });
+    } catch (error) {
+      console.error('getOrCreateSubscribeRecord 异常:', error);
+      reject(error);
+    }
+  });
+};
+
+// 获取用户的 subscribe 记录
+export const getSubscribeRecord = (openid: string, templateId: string): Promise<any> => {
+  return new Promise((resolve, reject) => {
+    try {
+      const db = getDb();
+      const subscribe = db.collection('subscribe');
+      
+      subscribe.where({
+        openid: openid,
+        templateId: templateId
+      }).get({
+        success: (res) => {
+          if (res.data.length > 0) {
+            console.log('获取 subscribe 记录成功:', res.data[0]);
+            resolve(res.data[0]);
+          } else {
+            console.log('subscribe 记录不存在');
+            resolve(null);
+          }
+        },
+        fail: (error) => {
+          console.error('获取 subscribe 记录失败:', error);
+          reject(error);
+        }
+      });
+    } catch (error) {
+      console.error('getSubscribeRecord 异常:', error);
+      reject(error);
+    }
+  });
+};
+
+// 更新 subscribe 记录的订阅次数
+export const updateSubscribeCount = (openid: string, templateId: string, count: number, userInfo?: {
+  nickName?: string;
+}): Promise<any> => {
+  return new Promise((resolve, reject) => {
+    try {
+      const db = getDb();
+      const subscribe = db.collection('subscribe');
+      
+      // 查询记录
+      subscribe.where({
+        openid: openid,
+        templateId: templateId
+      }).get({
+        success: (res) => {
+          if (res.data.length > 0) {
+            // 更新现有记录
+            const docId = res.data[0]._id;
+            const updateData: any = {
+              subscribeCount: count,
+              updateTime: new Date()
+            };
+            
+            // 如果提供了用户信息，更新昵称
+            if (userInfo && userInfo.nickName) {
+              updateData.nickname = userInfo.nickName;
+            }
+            
+            subscribe.doc(docId).update({
+              data: updateData,
+              success: (updateRes) => {
+                console.log('更新 subscribe 记录成功:', updateRes);
+                resolve(updateRes);
+              },
+              fail: (error) => {
+                console.error('更新 subscribe 记录失败:', error);
+                reject(error);
+              }
+            });
+          } else {
+            // 记录不存在，创建新记录
+            const newRecord = {
+              openid: openid,
+              templateId: templateId,
+              userId: openid,
+              nickname: userInfo?.nickName || '用户',
+              subscribeCount: count,
+              createTime: new Date(),
+              updateTime: new Date()
+            };
+            
+            subscribe.add({
+              data: newRecord,
+              success: (addRes) => {
+                console.log('创建 subscribe 记录成功:', addRes);
+                resolve(addRes);
+              },
+              fail: (error) => {
+                console.error('创建 subscribe 记录失败:', error);
+                reject(error);
+              }
+            });
+          }
+        },
+        fail: (error) => {
+          console.error('查询 subscribe 记录失败:', error);
+          reject(error);
+        }
+      });
+    } catch (error) {
+      console.error('updateSubscribeCount 异常:', error);
+      reject(error);
+    }
+  });
+};
+
+// 获取 subDetail 记录（根据 templateId）
+export const getSubDetail = (templateId: string): Promise<any> => {
+  return new Promise((resolve, reject) => {
+    try {
+      const db = getDb();
+      const subDetail = db.collection('subDetail');
+      
+      subDetail.where({
+        templateId: templateId
+      }).get({
+        success: (res) => {
+          if (res.data.length > 0) {
+            console.log('获取 subDetail 记录成功:', res.data[0]);
+            resolve(res.data[0]);
+          } else {
+            console.log('subDetail 记录不存在');
+            resolve(null);
+          }
+        },
+        fail: (error) => {
+          console.error('获取 subDetail 记录失败:', error);
+          reject(error);
+        }
+      });
+    } catch (error) {
+      console.error('getSubDetail 异常:', error);
+      reject(error);
+    }
+  });
+};
+
+// 记录推送信息到 pushRecord 集合
+export const recordPushMessage = (pushData: {
+  openid: string;
+  templateId: string;
+  userId?: string;
+  nickname?: string;
+  pushData?: any;
+  success: boolean;
+  errCode?: number;
+  errMsg?: string;
+}): Promise<any> => {
+  return new Promise((resolve, reject) => {
+    try {
+      const db = getDb();
+      const pushRecord = db.collection('pushRecord');
+      
+      const record = {
+        openid: pushData.openid,
+        templateId: pushData.templateId,
+        userId: pushData.userId || pushData.openid,
+        nickname: pushData.nickname || '用户',
+        pushData: pushData.pushData || {},
+        success: pushData.success,
+        errCode: pushData.errCode || null,
+        errMsg: pushData.errMsg || null,
+        pushTime: new Date(),
+        createTime: new Date()
+      };
+      
+      pushRecord.add({
+        data: record,
+        success: (res) => {
+          console.log('记录推送信息成功:', res);
+          resolve(res);
+        },
+        fail: (error) => {
+          console.error('记录推送信息失败:', error);
+          reject(error);
+        }
+      });
+    } catch (error) {
+      console.error('recordPushMessage 异常:', error);
+      reject(error);
+    }
+  });
+};
+
+// ========== postStat 缓存相关函数 ==========
+
+// 获取用户的 postStat 缓存
+export const getPostStatCache = (openid: string): Promise<any> => {
+  return new Promise((resolve, reject) => {
+    try {
+      const db = getDb();
+      const postStat = db.collection('postStat');
+      
+      postStat.where({
+        openid: openid
+      }).get({
+        success: (res) => {
+          if (res.data.length > 0) {
+            console.log('获取 postStat 缓存成功:', res.data[0]);
+            resolve(res.data[0]);
+          } else {
+            console.log('postStat 缓存不存在');
+            resolve(null);
+          }
+        },
+        fail: (error) => {
+          console.error('获取 postStat 缓存失败:', error);
+          reject(error);
+        }
+      });
+    } catch (error) {
+      console.error('获取 postStat 缓存异常:', error);
+      reject(error);
+    }
+  });
+};
+
+// 更新或创建 postStat 缓存
+export const updatePostStatCache = (openid: string, stats: {
+  postsCount: number;
+  imagesCount: number;
+  textCount: number;
+  totalWords: number;
+  avgWords: number;
+  activeDays: number;
+}): Promise<any> => {
+  return new Promise((resolve, reject) => {
+    try {
+      const db = getDb();
+      const postStat = db.collection('postStat');
+      
+      // 先查询是否存在
+      postStat.where({
+        openid: openid
+      }).get({
+        success: (queryRes) => {
+          if (queryRes.data.length > 0) {
+            // 更新现有记录
+            const docId = queryRes.data[0]._id;
+            postStat.doc(docId).update({
+              data: {
+                ...stats,
+                updateTime: new Date()
+              },
+              success: (res) => {
+                console.log('更新 postStat 缓存成功:', res);
+                resolve(res);
+              },
+              fail: (error) => {
+                console.error('更新 postStat 缓存失败:', error);
+                reject(error);
+              }
+            });
+          } else {
+            // 创建新记录
+            postStat.add({
+              data: {
+                openid: openid,
+                ...stats,
+                createTime: new Date(),
+                updateTime: new Date()
+              },
+              success: (res) => {
+                console.log('创建 postStat 缓存成功:', res);
+                resolve(res);
+              },
+              fail: (error) => {
+                console.error('创建 postStat 缓存失败:', error);
+                reject(error);
+              }
+            });
+          }
+        },
+        fail: (error) => {
+          console.error('查询 postStat 缓存失败:', error);
+          reject(error);
+        }
+      });
+    } catch (error) {
+      console.error('更新 postStat 缓存异常:', error);
+      reject(error);
+    }
+  });
+};
+
+// 增加 postStat 缓存（发布时调用）
+export const incrementPostStatCache = (openid: string, post: {
+  text?: string;
+  images?: string[];
+}): Promise<any> => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      // 先获取当前缓存
+      const currentCache = await getPostStatCache(openid);
+      
+      const imagesCount = (post.images && Array.isArray(post.images)) ? post.images.length : 0;
+      const hasText = post.text && typeof post.text === 'string' && post.text.trim().length > 0;
+      const textWords = hasText ? post.text.trim().length : 0;
+      
+      const newStats = {
+        postsCount: (currentCache?.postsCount || 0) + 1,
+        imagesCount: (currentCache?.imagesCount || 0) + imagesCount,
+        textCount: (currentCache?.textCount || 0) + (hasText ? 1 : 0),
+        totalWords: (currentCache?.totalWords || 0) + textWords,
+        avgWords: 0, // 需要重新计算
+        activeDays: currentCache?.activeDays || 0 // 活跃天数需要从实际数据计算
+      };
+      
+      // 计算平均字数
+      newStats.avgWords = newStats.textCount > 0 
+        ? Math.round(newStats.totalWords / newStats.textCount) 
+        : 0;
+      
+      // 更新缓存
+      await updatePostStatCache(openid, newStats);
+      console.log('增加 postStat 缓存成功:', newStats);
+      resolve(newStats);
+    } catch (error) {
+      console.error('增加 postStat 缓存失败:', error);
+      reject(error);
+    }
+  });
+};
+
+// 减少 postStat 缓存（删除时调用）
+export const decrementPostStatCache = (openid: string, post: {
+  text?: string;
+  images?: string[];
+}): Promise<any> => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      // 先获取当前缓存
+      const currentCache = await getPostStatCache(openid);
+      
+      if (!currentCache) {
+        console.warn('postStat 缓存不存在，无法减少');
+        resolve(null);
+        return;
+      }
+      
+      const imagesCount = (post.images && Array.isArray(post.images)) ? post.images.length : 0;
+      const hasText = post.text && typeof post.text === 'string' && post.text.trim().length > 0;
+      const textWords = hasText ? post.text.trim().length : 0;
+      
+      const newStats = {
+        postsCount: Math.max(0, (currentCache.postsCount || 0) - 1),
+        imagesCount: Math.max(0, (currentCache.imagesCount || 0) - imagesCount),
+        textCount: Math.max(0, (currentCache.textCount || 0) - (hasText ? 1 : 0)),
+        totalWords: Math.max(0, (currentCache.totalWords || 0) - textWords),
+        avgWords: 0, // 需要重新计算
+        activeDays: currentCache.activeDays || 0 // 活跃天数需要从实际数据计算
+      };
+      
+      // 计算平均字数
+      newStats.avgWords = newStats.textCount > 0 
+        ? Math.round(newStats.totalWords / newStats.textCount) 
+        : 0;
+      
+      // 更新缓存
+      await updatePostStatCache(openid, newStats);
+      console.log('减少 postStat 缓存成功:', newStats);
+      resolve(newStats);
+    } catch (error) {
+      console.error('减少 postStat 缓存失败:', error);
+      reject(error);
+    }
+  });
+};

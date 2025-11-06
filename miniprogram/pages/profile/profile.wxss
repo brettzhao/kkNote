@@ -308,3 +308,202 @@
 .logout-cell {
   color: #ff4757 !important;
 }
+
+/* 订阅次数显示 */
+.subscribe-count-display {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24rpx;
+  background: #ffffff;
+  border-radius: 16rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.06);
+  margin-bottom: 16rpx;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.subscribe-count-display:active {
+  transform: scale(0.98);
+  box-shadow: 0 1rpx 4rpx rgba(0, 0, 0, 0.1);
+  background: #f8f8f8;
+}
+
+.count-label {
+  font-size: 28rpx;
+  color: #666666;
+  margin-right: 12rpx;
+}
+
+.count-number {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: #F9C0C4;
+}
+
+/* 推送状态 */
+.push-status {
+  text-align: center;
+  padding: 12rpx;
+  background: #f8f8f8;
+  border-radius: 8rpx;
+}
+
+/* 清空订阅次数弹窗 */
+.clear-subscribe-popup {
+  border-radius: 24rpx 24rpx 0 0;
+  /* 防止键盘弹起时抖动 */
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100000;
+  /* 确保弹窗能够正确显示 */
+  max-height: 95vh;
+  height: auto;
+  overflow: hidden;
+  /* 确保弹窗不会被底部导航栏遮挡 */
+  padding-bottom: env(safe-area-inset-bottom);
+  /* 确保弹窗完全覆盖底部区域 */
+  margin-bottom: 0;
+}
+
+.clear-subscribe-content {
+  background: #ffffff;
+  border-radius: 24rpx 24rpx 0 0;
+  padding: 16rpx 24rpx 0;
+  /* 设置最大高度，确保弹窗不超出屏幕 */
+  max-height: 90vh;
+  min-height: auto;
+  /* 确保在不同屏幕尺寸下都能正常显示 */
+  height: auto;
+  overflow-y: auto;
+  /* 防止键盘弹起时的布局抖动 */
+  position: relative;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  /* 防止弹窗内容抖动 */
+  will-change: transform;
+  backface-visibility: hidden;
+  /* 确保内容能够完整显示 */
+  display: flex;
+  flex-direction: column;
+}
+
+.clear-subscribe-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12rpx;
+  padding-bottom: 8rpx;
+  border-bottom: 1rpx solid #e5e7eb;
+  /* 确保头部区域不被压缩 */
+  flex-shrink: 0;
+}
+
+.clear-subscribe-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #1f2328;
+}
+
+.clear-subscribe-close {
+  font-size: 40rpx;
+  color: #999;
+  cursor: pointer;
+  padding: 4rpx;
+}
+
+.clear-subscribe-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  /* 让表单区域可以滚动，但按钮区域固定 */
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  /* 确保表单内容不会挤压按钮区域 */
+  max-height: calc(90vh - 200rpx);
+  /* 防止表单区域抖动 */
+  position: relative;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+.clear-subscribe-tip {
+  font-size: 28rpx;
+  color: #666666;
+  text-align: center;
+  line-height: 1.6;
+  padding: 12rpx 0;
+}
+
+.clear-subscribe-actions {
+  display: flex;
+  gap: 16rpx;
+  justify-content: space-between;
+  margin-top: 12rpx;
+  position: relative;
+  /* 确保按钮区域始终可见 */
+  flex-shrink: 0;
+  padding: 12rpx 0 env(safe-area-inset-bottom);
+  border-top: 2rpx solid #f0f0f0;
+  background: #ffffff;
+  /* 确保按钮区域固定在底部 */
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  /* 减少按钮区域的高度 */
+  min-height: auto;
+}
+
+.clear-subscribe-reset-native,
+.clear-subscribe-submit-native {
+  flex: 1;
+  height: 70rpx;
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  margin: 0;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.15);
+}
+
+.clear-subscribe-reset-native {
+  background-color: transparent;
+  border: 2rpx solid #666666;
+  color: #666666;
+}
+
+.clear-subscribe-reset-native:active {
+  background-color: #F9C0C4;
+  border-color: #F9C0C4;
+  color: #ffffff;
+  transform: translateY(1rpx);
+  box-shadow: 0 1rpx 4rpx rgba(0, 0, 0, 0.15);
+}
+
+.clear-subscribe-submit-native {
+  background-color: #666666;
+  border: 2rpx solid #666666;
+  color: #ffffff;
+}
+
+.clear-subscribe-submit-native:active {
+  background-color: #F9C0C4;
+  border-color: #F9C0C4;
+  transform: translateY(1rpx);
+  box-shadow: 0 1rpx 4rpx rgba(0, 0, 0, 0.15);
+}
+
+.button-text {
+  font-size: 28rpx;
+  font-weight: 500;
+  line-height: 1;
+}

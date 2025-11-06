@@ -1,6 +1,6 @@
 // moment页面逻辑
 import { initCloud } from '../../utils/auth';
-import { getPosts, addPost, deletePost, uploadFile, recordImageViewAction, recordPublishAction, recordDeleteAction, recordEnterAppAction, recordRefreshAction, recordLoadMoreAction, getComments, addComment, deleteComment } from '../../utils/cloud';
+import { getPosts, addPost, deletePost, uploadFile, recordImageViewAction, recordPublishAction, recordDeleteAction, recordEnterAppAction, recordRefreshAction, recordLoadMoreAction, getComments, addComment, deleteComment, incrementPostStatCache, decrementPostStatCache } from '../../utils/cloud';
 import { testCloudConnection, getCloudInfo } from '../../utils/cloud-test';
 import { getTodayLunarDate } from '../../utils/lunar';
 
@@ -906,6 +906,17 @@ Page({
       // 保存到云数据库
       await this.savePostToCloud(newPost);
 
+      // 更新 postStat 缓存
+      try {
+        await incrementPostStatCache(openid, {
+          text: newPost.text,
+          images: newPost.images
+        });
+      } catch (cacheError) {
+        console.error('更新 postStat 缓存失败:', cacheError);
+        // 缓存更新失败不影响发布流程
+      }
+
       // 记录发布行为
       recordPublishAction(newPost);
 
@@ -1096,6 +1107,17 @@ Page({
       
       // 软删除：更新云数据库中的deleted字段
       await this.softDeletePostFromCloud(selectedPostId);
+      
+      // 更新 postStat 缓存
+      try {
+        await decrementPostStatCache(currentOpenid, {
+          text: post.text,
+          images: post.images
+        });
+      } catch (cacheError) {
+        console.error('更新 postStat 缓存失败:', cacheError);
+        // 缓存更新失败不影响删除流程
+      }
       
       // 从本地数据中移除（不显示已删除的动态）
       const posts = this.data.posts.filter(post => post.id !== selectedPostId);
@@ -1446,7 +1468,7 @@ Page({
     } else if (weatherLower.includes('雪')) {
       return '❄️';
     } else if (weatherLower.includes('雾') || weatherLower.includes('霾')) {
-      return '🌫️';
+      return '☁️';
     } else if (weatherLower.includes('雷')) {
       return '⛈️';
     } else if (weatherLower.includes('风')) {
@@ -2176,5 +2198,92 @@ Page({
         console.log('没有动态数据，无法测试评论加载');
       }
     }, 2000);
+  },
+
+  // 请求订阅消息授权
+  async requestSubscribeMessage() {
+    const templateId = 'Jg6qHMqCG24_bGVVPwtHjeBxQYB0urT0REeah9g7zfc';
+    
+    try {
+      const result = await wx.requestSubscribeMessage({
+        tmplIds: [templateId],
+        success: (res) => {
+          console.log('订阅消息授权结果:', res);
+          if (res[templateId] === 'accept') {
+            wx.showToast({
+              title: '订阅成功',
+              icon: 'success'
+            });
+          } else if (res[templateId] === 'reject') {
+            wx.showToast({
+              title: '已拒绝订阅',
+              icon: 'none'
+            });
+          } else {
+            wx.showToast({
+              title: '订阅失败',
+              icon: 'none'
+            });
+          }
+        },
+        fail: (err) => {
+          console.error('订阅消息授权失败:', err);
+          wx.showToast({
+            title: '授权失败',
+            icon: 'none'
+          });
+        }
+      });
+      
+      return result;
+    } catch (error) {
+      console.error('请求订阅消息失败:', error);
+      wx.showToast({
+        title: '请求失败',
+        icon: 'none'
+      });
+      throw error;
+    }
+  },
+
+  // 发送订阅消息
+  async sendSubscribeMessage(data: any) {
+    const templateId = 'Jg6qHMqCG24_bGVVPwtHjeBxQYB0urT0REeah9g7zfc';
+    
+    try {
+      if (!wx.cloud) {
+        throw new Error('云开发未初始化');
+      }
+      
+      const result = await wx.cloud.callFunction({
+        name: 'sendSubscribeMessage',
+        data: {
+          templateId: templateId,
+          data: data
+        }
+      });
+      
+      console.log('发送订阅消息结果:', result);
+      
+      if (result.result && typeof result.result === 'object' && result.result.success) {
+        wx.showToast({
+          title: '发送成功',
+          icon: 'success'
+        });
+        return result.result;
+      } else {
+        const errorMsg = (result.result && typeof result.result === 'object' && result.result.error) 
+          ? result.result.error 
+          : '发送失败';
+        throw new Error(errorMsg);
+      }
+    } catch (error) {
+      console.error('发送订阅消息失败:', error);
+      wx.showToast({
+        title: '发送失败',
+        icon: 'none'
+      });
+      throw error;
+    }
   }
 });

@@ -53,5 +53,56 @@
         </view>
       </view>
     </view>
+
+    <!-- 订阅与推送 -->
+    <view class="stats-section">
+      <view class="section-title">
+        <text class="title-text">订阅提醒</text>
+      </view>
+      
+      <!-- 订阅次数显示（可点击） -->
+      <view 
+        class="subscribe-count-display" 
+        bind:tap="onSubscribeAndStartPush"
+        bindlongpress="onSubscribeCountLongPress"
+      >
+        <text class="count-label">当前订阅次数：</text>
+        <text class="count-number">{{subscribeCount}}</text>
+      </view>
+    </view>
   </view>
+
+  <!-- 清空订阅次数弹窗 -->
+  <t-popup 
+    visible="{{showClearSubscribePopup}}" 
+    bind:visible-change="onClearSubscribePopupVisibleChange"
+    placement="bottom"
+    class="clear-subscribe-popup"
+  >
+    <view class="clear-subscribe-content">
+      <view class="clear-subscribe-header">
+        <text class="clear-subscribe-title">清空订阅次数</text>
+        <view class="clear-subscribe-close" bind:tap="cancelClearSubscribe">×</view>
+      </view>
+      
+      <view class="clear-subscribe-form">
+        <view class="clear-subscribe-tip">确认删除所有订阅次数吗？</view>
+      </view>
+      
+      <view class="clear-subscribe-actions">
+        <view 
+          class="clear-subscribe-reset-native"
+          bindtap="cancelClearSubscribe"
+        >
+          <text class="button-text">取消</text>
+        </view>
+        <view 
+          class="clear-subscribe-submit-native"
+          bindtap="confirmClearSubscribe"
+        >
+          <text class="button-text">清空</text>
+        </view>
+      </view>
+    </view>
+  </t-popup>
 </view>
