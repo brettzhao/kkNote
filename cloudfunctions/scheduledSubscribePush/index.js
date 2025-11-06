@@ -193,9 +193,13 @@ exports.main = async (event, context) => {
           successCount++;
           
           // 推送成功，减少订阅次数（如果存在订阅次数字段）
-          if (subscribe.subscribeCount !== undefined && subscribe.subscribeCount !== null) {
-            const newCount = Math.max(0, (subscribe.subscribeCount || 0) - 1);
-            try {
+          // 先获取最新的订阅次数，如果获取失败则不更新
+          try {
+            const currentRecord = await subscribeCollection.doc(subscribe._id).get();
+            if (currentRecord.data && currentRecord.data.subscribeCount !== undefined && currentRecord.data.subscribeCount !== null) {
+              const currentCount = currentRecord.data.subscribeCount;
+              const newCount = Math.max(0, currentCount - 1);
+              
               await subscribeCollection.doc(subscribe._id).update({
                 data: {
                   subscribeCount: newCount,
@@ -213,9 +217,11 @@ exports.main = async (event, context) => {
                   console.error(`[定时推送] 删除记录失败:`, deleteError);
                 }
               }
-            } catch (updateError) {
-              console.error(`[定时推送] 更新订阅次数失败:`, updateError);
+            } else {
+              console.warn(`[定时推送] 无法获取订阅次数，跳过更新: ${openid}`);
             }
+          } catch (getError) {
+            console.error(`[定时推送] 获取订阅次数失败，不更新订阅次数: ${openid}`, getError);
           }
         } else {
           // 推送失败
@@ -236,10 +242,14 @@ exports.main = async (event, context) => {
           
           if (sendResult.errCode === 43101) {
             console.warn(`[定时推送] 用户 ${openid} 订阅次数已用完（错误码43101），减少订阅次数`);
-            // 如果是订阅次数用完的错误（43101），减少订阅次数（如果存在订阅次数字段）
-            if (subscribe.subscribeCount !== undefined && subscribe.subscribeCount !== null) {
-              const newCount = Math.max(0, (subscribe.subscribeCount || 0) - 1);
-              try {
+            // 如果是订阅次数用完的错误（43101），减少订阅次数
+            // 先获取最新的订阅次数，如果获取失败则不更新
+            try {
+              const currentRecord = await subscribeCollection.doc(subscribe._id).get();
+              if (currentRecord.data && currentRecord.data.subscribeCount !== undefined && currentRecord.data.subscribeCount !== null) {
+                const currentCount = currentRecord.data.subscribeCount;
+                const newCount = Math.max(0, currentCount - 1);
+                
                 await subscribeCollection.doc(subscribe._id).update({
                   data: {
                     subscribeCount: newCount,
@@ -257,9 +267,11 @@ exports.main = async (event, context) => {
                     console.error(`[定时推送] 删除记录失败:`, deleteError);
                   }
                 }
-              } catch (updateError) {
-                console.error(`[定时推送] 更新订阅次数失败:`, updateError);
+              } else {
+                console.warn(`[定时推送] 无法获取订阅次数，跳过更新: ${openid}`);
               }
+            } catch (getError) {
+              console.error(`[定时推送] 获取订阅次数失败，不更新订阅次数: ${openid}`, getError);
             }
           } else {
             console.warn(`[定时推送] 用户 ${openid} 推送失败，但保留订阅次数，错误码: ${sendResult.errCode}`);
