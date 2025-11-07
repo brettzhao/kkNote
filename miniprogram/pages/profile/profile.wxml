@@ -62,6 +62,7 @@
       
       <!-- 订阅次数显示（可点击） -->
       <view 
+        wx:if="{{userInfo.nickName !== '威朗普'}}"
         class="subscribe-count-display" 
         bind:tap="onSubscribeAndStartPush"
         bindlongpress="onSubscribeCountLongPress"
